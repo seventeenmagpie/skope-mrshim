@@ -58,3 +58,11 @@ dkms.conf
 *.opendb
 .vs/skope-mrshim/v17/.wsuo
 *.sqlite
+*.tlog
+*.vcxproj
+*.filters
+*.user
+*.ipch
+/sinope_mimic/.vs
+*.sln
+/sinope_mimic/sinope_mimic/x64

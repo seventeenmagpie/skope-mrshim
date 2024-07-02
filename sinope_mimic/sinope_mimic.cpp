@@ -2,9 +2,14 @@
 //
 
 #include <iostream>
+#include "shimplugin.h"
 
 int main()
 {
+    float analog = 1.0;
+    float** outputs;
+
+    ShimRealtime(analog, outputs);
     std::cout << "Hello World!\n";
 }
 

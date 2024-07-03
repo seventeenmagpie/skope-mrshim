@@ -2,24 +2,49 @@
 //
 
 #include <iostream>
+#include <sstream>
 #include "shimplugin.h"
 
 int main()
 {
-    float analog = 1.0;
-    float** outputs;
+    //std::cout << "In main of SinopeMimic." << std::endl;
 
-    ShimRealtime(analog, outputs);
-    std::cout << "Hello World!\n";
+    int analog = 50;
+    float* currents;
+    float* prev_currents;
+    bool updated = false;
+
+    int number_of_channels = 0;
+    int i;
+
+    while (analog <= 1000) {
+        // read in the currents from the realtime device.
+        updated = false;
+
+        number_of_channels = ShimRealtime(analog, &currents);
+
+        std::cout << "Currents as recieved by sinope_mimic: ";
+
+        for (i = 0; i < number_of_channels; i++) {
+            std::cout << currents[i] << " ";
+            if ((int) (currents[i]*1000) != (int) (prev_currents[i]*1000)) {
+                prev_currents[i] = currents[i];
+                updated = true;
+            }
+        }
+
+        std::cout << std::endl;
+
+        if (updated) {
+            std::cout << "New currents are: ";
+            for (i = 0; i < number_of_channels; i++) {
+                std::cout << currents[i] << " ";
+            }
+            std::cout << std::endl;
+        } else {  // this loop goes very fast so this will spam.
+            std::cout << "Currents did not change." << std::endl;
+        }
+    }
+
+    return 0;
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file

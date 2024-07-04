@@ -1,47 +1,48 @@
-// sinope_mimic.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+// sinope_mimic.cpp
+// this pretends to be the sinope shim coil driver software by calling
+// ShimRealtime every iteration and writing the results to console if
+// they are different to the previous values.
+// this is sort of C-core because I know C first and also 
+// the docs of real sinope say I have to use pointers rather than vectors.
 
 #include <iostream>
-#include <sstream>
 #include "shimplugin.h"
+
+#define NUM_CHANNELS 24
 
 int main()
 {
     //std::cout << "In main of SinopeMimic." << std::endl;
 
     int analog = 50;
-    float* currents;
-    float* prev_currents;
-    bool updated = false;
-
-    // this line is important because it pre-allocates prev_currents
-    // otherwise it crashes when we try and read prev_currents[1]
-    // which wouldn't exist.
-    // we can't allocate it normally because we don't know how many 
-    // channels there should be
-    int number_of_channels = ShimRealtime(analog, &prev_currents);
-    //if (prev_currents[4]) {
-    //    std::cout << "prev_currents was populated" << std::endl;
-    //}
+    float* currents;  // points to the array of current shim currents
+    float previous_currents [NUM_CHANNELS];  // used to store the first set of shim currents
+    bool updated = false;  // flag for if currents have changed
     int i;
 
-    while (analog <= 1000) {
-        // read in the currents from the realtime device.
+    // fills previous_currents with some non-garbage values.
+    int number_of_channels = ShimRealtime(analog, &currents);
+    for (i = 0; i != NUM_CHANNELS; ++i) {
+        previous_currents[i] = currents[i];
+    }
+
+    while (true) {
         updated = false;
 
+        // read in the currents from the ShimRealtime
         number_of_channels = ShimRealtime(analog, &currents);
-        //if (currents[4]) {
-        //    std::cout << "currents was populated" << std::endl;
-        //}
 
+        // goes over the new currents
         for (i = 0; i < number_of_channels; i++) {
-            if ((int)(currents[i] * 1000) != (int)(prev_currents[i] * 1000)) {
-                prev_currents[i] = currents[i];
+            // compares to old currents. int conversion is because we are comparing
+            // floats
+            if ((int)(currents[i] * 1000) != (int)(previous_currents[i] * 1000)) {
+                previous_currents[i] = currents[i];
                 updated = true;
             }
-
         }
 
+        // if the currents have changed, output it
         if (updated) {
             std::cout << "New currents are: ";
             for (i = 0; i < number_of_channels; i++) {
@@ -49,11 +50,9 @@ int main()
             }
             std::cout << std::endl;
         } 
-        //else {  // this loop goes very fast so this will spam.
-        //    std::cout << "Currents did not change." << std::endl;
-        //}
 
-        std::cout << "Press enter." << std::endl;
+
+        std::cout << "Press enter.";
         std::cin.get();
     }
 

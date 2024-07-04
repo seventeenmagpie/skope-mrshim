@@ -6,6 +6,8 @@
 // the docs of real sinope say I have to use pointers rather than vectors.
 
 #include <iostream>
+#include <chrono>
+#include <thread>
 #include "shimplugin.h"
 
 #define NUM_CHANNELS 24
@@ -49,11 +51,15 @@ int main()
                 std::cout << currents[i] << " ";
             }
             std::cout << std::endl;
-        } 
+        }
+        //else {
+        //    std::cout << "No changes." << std::endl;
+        //}
 
 
-        std::cout << "Press enter.";
-        std::cin.get();
+        //std::cout << "Press enter.";
+        //std::cin.get();
+        std::this_thread::sleep_for(std::chrono::nanoseconds((int) 1e7));
     }
 
     return 0;

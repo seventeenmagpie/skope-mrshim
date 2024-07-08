@@ -1,13 +1,4 @@
-#pragma once
-#ifdef __cplusplus
-#ifdef _WIN32
-#define EXTERN extern "C" __declspec(dllexport)
-#else
-#define EXTERN extern "C"
-#endif
-#else
-#define EXTERN
-#endif
+#include "shimplugin.h"
 
 #define NUM_CHANNELS 24
 float shimValues[NUM_CHANNELS];  // array to store the current shim current values

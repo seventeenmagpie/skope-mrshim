@@ -16,7 +16,7 @@ EXTERN int ShimRealtime(float analogValue, float** output) {
 	std::ifstream current_file;
 	int this_current;
 
-	// shimsph.tmp should be a file with a list of shim currents in milliamps all
+	// shimsph.txt should be a file with a list of shim currents in milliamps all
 	// on their own lines.
 
 	current_file.open("shimsph.txt", std::ifstream::in);

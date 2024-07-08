@@ -50,6 +50,8 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Random files.
 *.json
 *.vsidx
 *.db
@@ -66,6 +68,7 @@ dkms.conf
 /sinope_mimic/.vs
 *.sln
 /sinope_mimic/sinope_mimic/x64
-dumping_deletes.txt
-sinope_mimic/bin/shimsph.txt
-sinope_mimic/bin/shimsph.txt
+
+# documentation and data files
+*.txt
+*.md

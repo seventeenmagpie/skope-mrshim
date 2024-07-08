@@ -5,6 +5,8 @@
 // this is sort of C-core because I know C first and also 
 // the docs of real sinope say I have to use pointers rather than vectors.
 
+// needs to be executed from .\bin\ so that shimplugin will find the .txt file properly.
+
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -24,6 +26,7 @@ int main()
 
     // fills previous_currents with some non-garbage values.
     int number_of_channels = ShimRealtime(analog, &currents);
+
     for (i = 0; i != NUM_CHANNELS; ++i) {
         previous_currents[i] = currents[i];
     }

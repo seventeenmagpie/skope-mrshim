@@ -1,7 +1,5 @@
-from asyncio import DatagramProtocol
 import io
 import json
-from pdb import runctx
 import selectors
 import struct
 from pathlib import PureWindowsPath
@@ -18,11 +16,9 @@ class Message:
         self.jsonheader = None
         self.request = None
         self.response_created = False
-        # path to shim current file, ensure is in the same directory as shimplugin.dll
-        self.shimming_filepath = PureWindowsPath("./sinope_mimic/bin/shimsph.txt")  
 
       
-    def _sete_selector_events_mask(self, mode):
+    def _set_selector_events_mask(self, mode):
         """Set selector to listen for events."""
         if mode == "r":
             events = selectors.EVENT_READ
@@ -56,9 +52,7 @@ class Message:
                 pass
             else:
                 self._send_buffer = self._send_buffer[sent:]
-                # close when the buffer is drained.
-                if sent and not self._send_buffer:
-                    self.close()
+
                     
     def _json_encode(self, obj, encoding):
         return json.dumps(obj, ensure_ascii=True).encode(encoding)
@@ -202,20 +196,5 @@ class Message:
         message = self._create_message(**response)
         self.response_created = True
         self._send_buffer += message
-            
-            
-            
-        
 
-    def _write_currents_to_file(self, shim_currents: list[int]):
-        with open(self.filepath, 'w', encoding='ascii') as f:
-                # overwrite rest of file
-            f.seek(0)
-    
-            # write currents to file
-            for current in shim_currents:
-                f.write(str(current))
-                f.write("\n")
 
-            # flush buffer to actually put currents in file.
-            f.flush()

@@ -58,17 +58,16 @@ dkms.conf
 *.db-wal
 *.db-shm
 *.opendb
-.vs/skope-mrshim/v17/.wsuo
 *.sqlite
 *.tlog
 *.vcxproj
 *.filters
 *.user
 *.ipch
-/sinope_mimic/.vs
-*.sln
-/sinope_mimic/sinope_mimic/x64
 
 # documentation and data files
 *.txt
 *.md
+
+# some example files i was learning from
+real_python_network_examples/

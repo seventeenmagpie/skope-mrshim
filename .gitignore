@@ -68,6 +68,10 @@ dkms.conf
 # documentation and data files
 *.txt
 *.md
+*.log
+*.pyc
 
 # some example files i was learning from
 real_python_network_examples/
+**/__pycache__/
+**/logs/

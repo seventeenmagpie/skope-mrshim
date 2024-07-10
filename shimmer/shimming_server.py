@@ -5,23 +5,23 @@ import socket
 import sys
 import traceback
 
-from server_packets import Message, CommandRecieved, server_logger
-
-
+from server_packets import Message, CommandRecieved, ClientDisconnect, server_logger
 
 class GenericClient():
+    """Represents a generic client object, having a socket, current packet and internal id associated with it."""
     def __init__(self, conn, addr, message, id):
         self.conn = conn
         self.addr = addr
         self.message = message
         self.id = id
 
-# TODO: this really doesn't need to be a class. it only gets used once.
+# TODO: does this really need to be a class?
 class ShimmingServer():
+    """Coordinates packets between clients. Has internal state."""
     def __init__(self):
         self.running = True
         self.shimming = False
-        self.connected_clients = {}
+        self.connected_clients = {}  # stores connected clients. id (int) : client (GenericClient)
         self.sel = selectors.DefaultSelector()
         self.last_used_id = 0
         self.id = 0
@@ -31,21 +31,29 @@ class ShimmingServer():
         self.port = 65432
 
     def _generate_id(self):
+        """Generate the next unused internal id.
+
+        The server has an id of 0."""
         self.last_used_id += 1
         return self.last_used_id
 
     def start(self):
+        """Start the server."""
+
+        # open a listening socket to listen for new connections.
         self.lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Avoid bind() exception: OSError: [Errno 48] Address already in use
+        # SO_REUSEADDR avoids bind() exception: OSError: [Errno 48] Address already in use 
         self.lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.lsock.bind((self.host, self.port))
         self.lsock.listen()
         print(f"Listening on {(self.host, self.port)}")
         server_logger.info(f"Listening on {(self.host, self.port)}")
         self.lsock.setblocking(False)
+        # adds this socket to the register is a read type io.
         self.sel.register(self.lsock, selectors.EVENT_READ, data=None)
 
-    def handle_command_string(self, command_string):
+    def handle_command_string(self, command_string: str):
+        """Handle a the command part of a 'command' type packet."""
         # TODO: add a parser and so on. use the frynab cli stuff.
         if command_string == "halt":
             print("Halting server")
@@ -61,49 +69,58 @@ class ShimmingServer():
             for id, client in self.connected_clients.items():
                 print(f" - id:{id} @ {client.addr[0]}:{client.addr[1]},")
         elif command_string == "status":
-            # print a stuts message
             print(f"Server {'is' if self.running else 'is not'} running and shimming is {'enabled' if self.shimming else 'disabled'}.")
 
 
     def accept_wrapper(self, sock):
-        # TODO: create a generic client object and use it to store its address and such
-        # so that we can send currents to a particular client &c..
-        conn, addr = sock.accept()  # Should be ready to read
-
+        """Accept a new client's connection."""
+        conn, addr = sock.accept()  # new socket for the client.
         print(f"Accepted connection from {addr}")
         conn.setblocking(False)
+        # create a message object to do the talking on.
         message = Message(self.sel, conn, addr)
+
+        # create a GenericClient object for keeping track of who is connected.
         generated_id = self._generate_id()
         new_client = GenericClient(conn, addr, message, generated_id)
         id = new_client.id
         self.connected_clients[id] = new_client
+
+        # add the new client to the selector, we're ready to listen to it.
         self.sel.register(conn, selectors.EVENT_READ, data=message)
 
     def main_loop(self):
-        # uses the selector to get the current task (either read a packet, write a packet)
+        # uses the selector to get a list of sockets currently waiting for us to
+        # do something.
         # events is a tuple with a key (which will be a server Packet object here)
         # and a mask, which will be a selector.EVENT_ thing, 
         # these are then used by the packet code (.process_events) to do things.
         events = self.sel.select(timeout=None)
 
         server_logger.debug(f"There are {len(events)} things in events.")
-        for key, mask in events:
+        for key, mask in events:  # iterate through waiting sockets.
             server_logger.debug(f"mask is {mask}")
 
             if key.data is None:  # this is a new socket, we should accept it.
                 self.accept_wrapper(key.fileobj)
-            else:
+            else:  # we should process it.
                 if key.data.request:
                     server_logger.debug(f"Key request is {key.data.request}")
-
+            
                 message = key.data
                 try:
                     message.process_events(mask)
                 except CommandRecieved as command_string:
-                    # commands get back to the server by raising this exception
-                    # print(f"In main loop. Command {command_string} recieved.")
-                    # str is so we go from an exception string to a real string we can compare with.
-                    self.handle_command_string(str(command_string))
+                    self.handle_command_string(str(command_string))  # str() because exceptions object is not a string.
+                except ClientDisconnect as disconnect_addr:
+
+                    for id, client in self.connected_clients.items():
+                        if str(client.addr) == str(disconnect_addr):
+                            print(f"Removed client {client.id} which was at {client.addr}")
+                            del client
+                            break
+        
+                    del self.connected_clients[id]
                 except Exception:
                     print(
                         f"Main: Error: Exception for {message.addr}:\n"
@@ -132,7 +149,7 @@ try:
 except KeyboardInterrupt:
     print("Caught keyboard interrupt, exiting")
 finally:
-    # TODO: disconnect all clients
+    # TODO: disconnect all clients nicely.
     for id, client in server.connected_clients.items():
         pass
     server.sel.close()

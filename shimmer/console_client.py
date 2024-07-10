@@ -5,10 +5,53 @@ import socket
 import sys
 import traceback
 
-from client_packets import Message, client_logger
+from client_packets import Message, client_logger, ClientDisconnect
 
 sel = selectors.DefaultSelector()
 
+class CommandPrompt():
+    def __init__(self, selector):
+        self.addr = "I'm a command prompt."
+        self.selector = selector
+
+    def _set_selector_events_mask(self, mode):
+        """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
+        if mode == "r":
+            events = selectors.EVENT_READ
+        elif mode == "w":
+            events = selectors.EVENT_WRITE
+        elif mode == "rw":
+            events = selectors.EVENT_READ | selectors.EVENT_WRITE
+        else:
+            raise ValueError(f"Invalid events mask mode {mode!r}.")
+        self.selector.modify(0, events, data=self)
+
+
+    def send_command(self):
+        command_string = input("[shimmer]: ")
+        action = "command"
+        value = command_string
+        request = create_request(action, value)
+        client_logger.info(f"Created request is: {request}")
+        send_request(sock, addr, request)
+        self._set_selector_events_mask("r")
+        
+
+    def process_events(self, mask):
+        if mask & selectors.EVENT_READ:
+            pass
+        if mask & selectors.EVENT_WRITE:
+            self.send_command()
+
+    def close(self):
+        print("Closing prompt. Goodbye <3")
+
+
+
+prompt = CommandPrompt(sel)
+
+# register the command prompt object
+sel.register(0, selectors.EVENT_WRITE, data=prompt)
 
 def create_request(action, value):
     if action == "search":
@@ -63,13 +106,14 @@ try:
         client_logger.debug(f"There are {len(events)} things in events.")
         for key, mask in events:
             client_logger.debug("mask is {mask}")
-
-            if key.data.response:
-                client_logger.debug(f"Key response is {key.data.response}")
            
             message = key.data
             try:
                 message.process_events(mask)
+            except ClientDisconnect:
+                print("Disconnected from server.")
+                message.close()
+                raise KeyboardInterrupt
             except Exception:
                 print(
                     f"Main: Error: Exception for {message.addr}:\n"
@@ -77,23 +121,7 @@ try:
                 )
                 message.close()
 
-        if not events:  # once we have processed all events, then we get a new command in.
-            command_string = input("[shimmer]: ")
-            action = "command"
-            value = command_string
-    
-            request = create_request(action, value)
-            client_logger.info(f"Created request is: {request}")
-            send_request(sock, addr, request)
-            # TODO: after lunch i bet somewhere in process_events the message is removed 
-            # from the selector, so any commands after the first aren't actually sent...
-            # TODO: after lunch: play around with selectors so you understand that ples.
-            # some debugging suggests the issue is on the server side, not recieving any command after the first.
-
-        # Check for a socket being monitored to continue.
-        if value == "disconnect":
-            break
 except KeyboardInterrupt:
-    print("Caught keyboard interrupt, exiting")
+    print("Exiting program! Take care :)")
 finally:
     sel.close()

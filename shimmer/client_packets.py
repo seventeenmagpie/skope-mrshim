@@ -10,6 +10,9 @@ logging.basicConfig(filename = "./logs/shimmer_clients.log",
                     encoding = "utf-8",
                     level=logging.DEBUG)
 
+class ClientDisconnect(Exception):
+    pass
+
 class Message:
     def __init__(self, selector, sock, addr, request):
         self.selector = selector
@@ -36,6 +39,7 @@ class Message:
         self.selector.modify(self.sock, events, data=self)
 
     def _read(self):
+        client_logger.debug("_read")
         try:
             # Should be ready to read
             data = self.sock.recv(4096)
@@ -89,6 +93,10 @@ class Message:
         content = self.response
         result = content.get("result")
         client_logger.info(f"Got result: {result}")
+
+        if result == "disconnect":
+           client_logger.debug("raising client disconnect")
+            raise ClientDisconnect
 
     def _process_response_binary_content(self):
         content = self.response
@@ -205,7 +213,7 @@ class Message:
         if self.jsonheader["content-type"] == "text/json":
             encoding = self.jsonheader["content-encoding"]
             self.response = self._json_decode(data, encoding)
-            # print(f"Received response {self.response!r} from {self.addr}")
+            client_logger.info(f"Received response {self.response!r} from {self.addr}")
             self._process_response_json_content()
         else:
             # Binary or unknown content-type
@@ -215,7 +223,8 @@ class Message:
                 f"response from {self.addr}"
             )
             self._process_response_binary_content()
-        # Close when response has been processed
-        # self.close()  # what if i don't?
-        # Set selector to listen for write events. we're done reading.
-        self._set_selector_events_mask("rw")
+        
+        # once a response has been read, we're ready to recieve another command and send it on this port
+        self._set_selector_events_mask("w")  # can send data on this port
+        console_object = self.selector.get_key(0).data
+        self.selector.modify(0, selectors.EVENT_WRITE, data=console_object)  # can recieve another command

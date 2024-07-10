@@ -1,0 +1,7 @@
+[sinope]
+address="127.0.0.1"
+port=65432
+
+[skope]
+address="127.0.0.1"
+port=65432

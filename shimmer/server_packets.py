@@ -5,23 +5,21 @@ import struct
 import sys
 import logging
 
-request_search = {
-    "morpheus": "Follow the white rabbit. \U0001f430",
-    "ring": "In the caves beneath the Misty Mountains. \U0001f48d",
-    "\U0001f436": "\U0001f43e Playing ball! \U0001f3d0",
-}
-
 server_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_server.log",
                     encoding = "utf-8",
                     level=logging.DEBUG)
 
 class CommandRecieved(Exception):
-    """An exception for taking execution back to the main loop when a command is executed that affects server state."""
+    """Raised when a server command needs executing.
+
+    Takes execution back to the main loop when a command is executed that affects server state."""
     pass
 
 class ClientDisconnect(Exception):
-    """Raised when a client disconnects, after the socket is closed and deregistered, so the main server process can stop keeping track of it."""
+    """Raised when a client disconnects.
+
+    Called after the socket is closed and deregistered, so the main server process can stop keeping track of it."""
     pass
 
 class Message:
@@ -35,7 +33,7 @@ class Message:
         self.jsonheader = None
         self.request = None
         self.response_created = False
-        self.disconnect = False  # if true and no response queued then will close.
+        self.disconnect = False  # sentinel for whether to disconnect this socket or not.
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -132,11 +130,7 @@ class Message:
     def _create_response_json_content(self):
         """Generate the json response that we'll send back to the client."""
         action = self.request.get("action")
-        if action == "search":
-            query = self.request.get("value")
-            answer = request_search.get(query) or f"No match for '{query}'."
-            content = {"result": answer}
-        elif action == "command":
+        if action == "command":
             command = self.request.get("value")
             content = {"result": f"Command {command} recieved by server."}
 
@@ -202,6 +196,7 @@ class Message:
         self._write()
 
     def close(self):
+        """Unregister the socket from the selector and closes the socket."""
         print(f"Closing connection to {self.addr}")
         try:
             server_logger.debug("unregistering socket.")
@@ -221,50 +216,58 @@ class Message:
             self.sock = None
 
     def process_protoheader(self):
+        """Process the protoheader to find out the length of the json header."""
         hdrlen = 2
-        if len(self._recv_buffer) >= hdrlen:
+        if len(self._recv_buffer) >= hdrlen:  # enough data has been sent in.
             self._jsonheader_len = struct.unpack(
                 ">H", self._recv_buffer[:hdrlen]
             )[0]
-            self._recv_buffer = self._recv_buffer[hdrlen:]
+            self._recv_buffer = self._recv_buffer[hdrlen:]  # remove the protoheader from the buffer. we don't want to read it again.
 
     def process_jsonheader(self):
+        """Process the jsonheader to find out information about the content."""
         hdrlen = self._jsonheader_len
-        if len(self._recv_buffer) >= hdrlen:
+        if len(self._recv_buffer) >= hdrlen:  # enough data has been sent in.
             self.jsonheader = self._json_decode(
                 self._recv_buffer[:hdrlen], "utf-8"
             )
-            self._recv_buffer = self._recv_buffer[hdrlen:]
+            self._recv_buffer = self._recv_buffer[hdrlen:]  # remove from buffer so we don't read it again.
             for reqhdr in (
                 "byteorder",
                 "content-length",
                 "content-type",
                 "content-encoding",
-            ):
+            ):  # check we have everything.
                 if reqhdr not in self.jsonheader:
                     raise ValueError(f"Missing required header '{reqhdr}'.")
 
     def process_request(self):
+        """Process the actual content of the message."""
+
         content_len = self.jsonheader["content-length"]
-        if not len(self._recv_buffer) >= content_len:
-            return
+
+        if not len(self._recv_buffer) >= content_len:  # we haven't recieved the whole message
+            return  # read will keep being called until we get past here.
+
         data = self._recv_buffer[:content_len]
-        self._recv_buffer = self._recv_buffer[content_len:]
+        self._recv_buffer = self._recv_buffer[content_len:]  # clear the read buffer.
+
         if self.jsonheader["content-type"] == "text/json":
             encoding = self.jsonheader["content-encoding"]
             self.request = self._json_decode(data, encoding)
             server_logger.info(f"Received request {self.request!r} from {self.addr}")
+
         elif self.jsonheader["content-type"] == "command":
-            # escape to main loop.
             server_logger.debug("Command packet recieved. Attempting to escape.")
             encoding = self.jsonheader["content-encoding"]
             self.request = self._json_decode(data, encoding)
-            self._set_selector_events_mask("w")  # so that a response will be created.
 
             if not self.request["value"] == "disconnect":
-                raise CommandRecieved(self.request.get("value"))
-            elif self.request["value"] == "disconnect":
-                self.disconnect = True  # sentinel variable to start disconnect process
+                self._set_selector_events_mask("w")  # set here because we never reach bottom of this function.
+                raise CommandRecieved(self.request.get("value"))  # escapes us to main loop.
+            elif self.request["value"] == "disconnect":  # disconnent commands are different and don't require we go into the main loop yet.
+                self.disconnect = True 
+
         else:
             # Binary or unknown content-type
             self.request = data
@@ -276,13 +279,14 @@ class Message:
         self._set_selector_events_mask("w")
 
     def create_response(self):
+        """Decide which sort of response we send back to the client and add it to the send buffer."""
         if self.jsonheader["content-type"] == "text/json":
             response = self._create_response_json_content()
         elif self.jsonheader["content-type"] == "command":
             response = self._create_response_json_content()
         else:
-            # Binary or unknown content-type
             response = self._create_response_binary_content()
+
         message = self._create_message(**response)
         self.response_created = True
         self._send_buffer += message

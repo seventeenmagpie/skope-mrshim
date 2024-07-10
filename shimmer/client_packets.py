@@ -39,6 +39,9 @@ class Message:
         self.selector.modify(self.sock, events, data=self)
 
     def _read(self):
+        """Read from the socket and add to the read buffer.
+
+        Called repeatedly by .read()"""
         client_logger.debug("_read")
         try:
             # Should be ready to read
@@ -53,6 +56,9 @@ class Message:
                 raise RuntimeError("Peer closed.")
 
     def _write(self):
+        """Write to the socket fom the send buffer.
+
+        Called repeatedly by .write()"""
         if self._send_buffer:
             client_logger.info(f"Sending {self._send_buffer!r} to {self.addr}")
             try:
@@ -65,9 +71,11 @@ class Message:
                 self._send_buffer = self._send_buffer[sent:]
 
     def _json_encode(self, obj, encoding):
+        """Encodes json into bytes."""
         return json.dumps(obj, ensure_ascii=False).encode(encoding)
 
     def _json_decode(self, json_bytes, encoding):
+        """Decodes bytes into a json object."""
         tiow = io.TextIOWrapper(
             io.BytesIO(json_bytes), encoding=encoding, newline=""
         )
@@ -78,6 +86,7 @@ class Message:
     def _create_message(
         self, *, content_bytes, content_type, content_encoding
     ):
+        """Create the bytes of message that are sent down the wire."""
         jsonheader = {
             "byteorder": sys.byteorder,
             "content-type": content_type,
@@ -90,19 +99,22 @@ class Message:
         return message
 
     def _process_response_json_content(self):
+        """Process a json response."""
         content = self.response
         result = content.get("result")
         client_logger.info(f"Got result: {result}")
 
-        if result == "disconnect":
+        if result == "disconnect":  # special case for the disconnect command.
            client_logger.debug("raising client disconnect")
            raise ClientDisconnect
 
     def _process_response_binary_content(self):
+        """Process a binary response."""
         content = self.response
         client_logger.info(f"Got response: {content!r}")
 
     def process_events(self, mask):
+        """Use selector state to start read or write."""
         if mask & selectors.EVENT_READ:
             client_logger.debug("client is reading")
             self.read()
@@ -111,6 +123,7 @@ class Message:
             self.write()
 
     def read(self):
+        """Read and start processing of message."""
         self._read()
 
         if self._jsonheader_len is None:
@@ -125,6 +138,7 @@ class Message:
                 self.process_response()
 
     def write(self):
+        """Write request if queued, generate it if not."""
         if not self._request_queued:
             self.queue_request()
 
@@ -137,6 +151,7 @@ class Message:
 
 
     def close(self):
+        """Unregister from the selector and close the connection."""
         print(f"Closing connection to {self.addr}")
         try:
             self.selector.unregister(self.sock)
@@ -155,6 +170,7 @@ class Message:
             self.sock = None
 
     def queue_request(self):
+        """Create a request to put in the buffer, ready to be sent next time the selector mask is 'r'."""
         content = self.request["content"]
         content_type = self.request["type"]
         content_encoding = self.request["encoding"]
@@ -181,35 +197,42 @@ class Message:
         self._request_queued = True
 
     def process_protoheader(self):
+        """Process the protoheader that says how long the jsonheader is."""
         hdrlen = 2
         if len(self._recv_buffer) >= hdrlen:
             self._jsonheader_len = struct.unpack(
                 ">H", self._recv_buffer[:hdrlen]
             )[0]
-            self._recv_buffer = self._recv_buffer[hdrlen:]
+            self._recv_buffer = self._recv_buffer[hdrlen:]  # remove protoheader from buffer, we don't need it again.
 
     def process_jsonheader(self):
+        """Process the jsonheader that contains metadata about the contents."""
         hdrlen = self._jsonheader_len
-        if len(self._recv_buffer) >= hdrlen:
+
+        if len(self._recv_buffer) >= hdrlen: # if we have recieved enough data
             self.jsonheader = self._json_decode(
                 self._recv_buffer[:hdrlen], "utf-8"
             )
-            self._recv_buffer = self._recv_buffer[hdrlen:]
+            self._recv_buffer = self._recv_buffer[hdrlen:]  # remove from buffer.
             for reqhdr in (
                 "byteorder",
                 "content-length",
                 "content-type",
                 "content-encoding",
-            ):
+            ):  # check we have all the neccessary parts.
                 if reqhdr not in self.jsonheader:
                     raise ValueError(f"Missing required header '{reqhdr}'.")
 
     def process_response(self):
+        """Process the actual response from the server."""
         content_len = self.jsonheader["content-length"]
-        if not len(self._recv_buffer) >= content_len:
+
+        if not len(self._recv_buffer) >= content_len:  # if we have recieved enough data
             return
+
         data = self._recv_buffer[:content_len]
-        self._recv_buffer = self._recv_buffer[content_len:]
+        self._recv_buffer = self._recv_buffer[content_len:]  # remove from buffer
+
         if self.jsonheader["content-type"] == "text/json":
             encoding = self.jsonheader["content-encoding"]
             self.response = self._json_decode(data, encoding)

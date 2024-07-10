@@ -90,36 +90,33 @@ class ShimmingServer():
         self.sel.register(conn, selectors.EVENT_READ, data=message)
 
     def main_loop(self):
-        # uses the selector to get a list of sockets currently waiting for us to
-        # do something.
-        # events is a tuple with a key (which will be a server Packet object here)
-        # and a mask, which will be a selector.EVENT_ thing, 
-        # these are then used by the packet code (.process_events) to do things.
-        events = self.sel.select(timeout=None)
+        """Choose the socket to send/recieve on and do that. Catch commands and disconnects."""
+        events = self.sel.select(timeout=None)  # set of waiting io
 
         server_logger.debug(f"There are {len(events)} things in events.")
         for key, mask in events:  # iterate through waiting sockets.
+            # key is a NamedTuple with the socket number and data=message. mask is the io type.
             server_logger.debug(f"mask is {mask}")
 
             if key.data is None:  # this is a new socket, we should accept it.
                 self.accept_wrapper(key.fileobj)
-            else:  # we should process it.
+            else:  # otherwise we should process it.
                 if key.data.request:
                     server_logger.debug(f"Key request is {key.data.request}")
             
                 message = key.data
                 try:
                     message.process_events(mask)
+                # during processing, one of the folliwng special exceptions may arise.
                 except CommandRecieved as command_string:
                     self.handle_command_string(str(command_string))  # str() because exceptions object is not a string.
                 except ClientDisconnect as disconnect_addr:
-
+                    # remove from internal list of clients
                     for id, client in self.connected_clients.items():
                         if str(client.addr) == str(disconnect_addr):
                             print(f"Removed client {client.id} which was at {client.addr}")
                             del client
                             break
-        
                     del self.connected_clients[id]
                 except Exception:
                     print(

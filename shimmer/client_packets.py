@@ -96,7 +96,7 @@ class Message:
 
         if result == "disconnect":
            client_logger.debug("raising client disconnect")
-            raise ClientDisconnect
+           raise ClientDisconnect
 
     def _process_response_binary_content(self):
         content = self.response

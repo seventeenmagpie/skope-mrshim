@@ -4,6 +4,7 @@ import selectors
 import socket
 import sys
 import traceback
+import tomli
 
 from client_packets import Message, client_logger, ClientDisconnect
 
@@ -49,11 +50,6 @@ class CommandPrompt():
     def close(self):
         print("Closing prompt. Goodbye <3")
 
-sel = selectors.DefaultSelector()
-prompt = CommandPrompt(sel)
-
-# register the command prompt object
-sel.register(0, selectors.EVENT_WRITE, data=prompt)
 
 def create_request(action, value):
     """Make a requst from the users entry."""
@@ -80,10 +76,13 @@ def create_request(action, value):
 def start_connection(host, port):
     """Try and make a connection to the server, add this socket to the selector."""
     addr = (host, port)
+    my_address = (config["console"]["address"], config["console"]["port"])
+
     print(f"Starting connection to {addr}")
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock = socket.create_connection(addr, source_address = my_address)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.setblocking(False)
-    sock.connect_ex(addr)
+
     events = selectors.EVENT_READ
     # add yourself to the register if successful.
     sel.register(sock, events, data = None)
@@ -98,13 +97,30 @@ def send_request(sock, addr, request):
     sel.modify(sock, events, data=message)
     client_logger.debug(f"Modified {sock} in selector.")
 
-
-if len(sys.argv) != 3:
-    print(f"Usage: {sys.argv[0]} <host> <port>")
+# check correct arguments (none)
+if len(sys.argv) != 1:
+    print(f"Usage: {sys.argv[0]}")
     sys.exit(1)
 
-host, port = sys.argv[1], int(sys.argv[2])
-sock, addr = start_connection(host, port)
+# load the config file
+try:
+    with open("config.toml", "rb") as f:
+        config = tomli.load(f)
+except tomli.TOMLDecodeError:
+    print("Invalid config file.")
+    sys.exit(1)
+
+# create the selector
+sel = selectors.DefaultSelector()
+
+# connect to the server
+host, port = config["server"]["address"], config["server"]["port"]
+sock, addr = start_connection(host, port) 
+
+# create and register the command prompt.
+prompt = CommandPrompt(sel)
+sel.register(0, selectors.EVENT_WRITE, data=prompt)
+
 
 try:
     while True:

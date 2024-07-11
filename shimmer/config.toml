@@ -1,7 +1,15 @@
 [sinope]
 address="127.0.0.1"
-port=65432
+port=25002
 
 [skope]
 address="127.0.0.1"
-port=65432
+port=6400
+
+[server]
+address="127.0.0.1"
+port=25000
+
+[console]
+address="127.0.0.1"
+port=25001

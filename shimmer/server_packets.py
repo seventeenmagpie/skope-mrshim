@@ -7,7 +7,6 @@ import logging
 
 server_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_server.log",
-                    encoding = "utf-8",
                     level=logging.DEBUG)
 
 class CommandRecieved(Exception):

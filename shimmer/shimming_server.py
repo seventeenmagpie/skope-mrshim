@@ -4,6 +4,7 @@ import selectors
 import socket
 import sys
 import traceback
+import tomli
 
 from server_packets import Message, CommandRecieved, ClientDisconnect, server_logger
 
@@ -26,9 +27,8 @@ class ShimmingServer():
         self.last_used_id = 0
         self.id = 0
 
-        # TODO: load from config.toml
-        self.host = "127.0.0.1"
-        self.port = 65432
+        self.host = config["server"]["address"]
+        self.port = config["server"]["port"]
 
     def _generate_id(self):
         """Generate the next unused internal id.
@@ -79,6 +79,13 @@ class ShimmingServer():
         conn.setblocking(False)
         # create a message object to do the talking on.
         message = Message(self.sel, conn, addr)
+        
+        print(config)
+        print(f"{addr[0]} and {addr[1]}")
+        # work out which role the newly connected client fits
+        for role, address_dict in config.items():
+            if (addr[0] == address_dict["port"]) and (addr[1] == address_dict["port"]):
+                print(f"{role} just connected.")
 
         # create a GenericClient object for keeping track of who is connected.
         generated_id = self._generate_id()
@@ -130,8 +137,14 @@ if len(sys.argv) != 1:
     print(f"Usage: {sys.argv[0]}")
     sys.exit(1)
 
-server = ShimmingServer()
+try:
+    with open("config.toml", "rb") as f:
+        config = tomli.load(f)
+except tomli.TOMLDecodeError:
+    print("Invalid config file.")
+    sys.exit(1)
 
+server = ShimmingServer()
 server.start()
 
 try:

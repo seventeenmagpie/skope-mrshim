@@ -122,6 +122,7 @@ class ShimmingServer():
                     message.process_events(mask)
                 # during processing, one of the folliwng special exceptions may arise.
                 except CommandRecieved as command_string:
+                    print(f"doing command {command_string}")
                     self.handle_command_string(str(command_string))  # str() because exceptions object is not a string.
                 except ClientDisconnect as disconnect_addr:
                     # remove from internal list of clients

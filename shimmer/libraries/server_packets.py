@@ -272,13 +272,15 @@ class Message:
             if not self.request["value"][0] == "!":  # server commands don't start with !
                 self._set_selector_events_mask("w")  # set here because we never reach bottom of this function.
                 # HACK: there has got to be a more pythonic way than raising an exception.
-                raise CommandRecieved(self.request.get("value")[1:])  # escapes us to main loop and takes the rest of the command with it.
+                raise CommandRecieved(self.request.get("value"))  # escapes us to main loop and takes the rest of the command with it.
             
-            command_tokens = parse(self.request["value"])
+            print(self.request["value"][1:])
+            command_tokens = parse(self.request["value"][1:])  # don't try and parse the !
 
-            if command_tokens[0] == "!disconnect":
+            if command_tokens[0] == "disconnect":
+                print("doing disconnect")
                 self.disconnect = True 
-            elif command_tokens[0] == "!message":
+            elif command_tokens[0] == "message":
                 try:
                     to = command_tokens[1]
                     content = command_tokens[2]

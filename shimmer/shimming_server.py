@@ -54,7 +54,7 @@ class ShimmingServer():
         self.lsock.setblocking(False)
         # adds this socket to the register is a read type io.
         self.sel.register(self.lsock, selectors.EVENT_READ, data=None)
-     
+
 
     def handle_command_string(self, command_string):
         """Handle a the command part of a 'command' type packet."""

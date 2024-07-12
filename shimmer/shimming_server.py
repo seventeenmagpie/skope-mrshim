@@ -13,7 +13,7 @@ from libraries.server_packets import Message, CommandRecieved, ClientDisconnect,
 class GenericClient():
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
     def __init__(self, conn, addr, message, id, name):
-        self.conn = conn
+        self.socket = conn
         self.addr = addr
         self.message = message
         self.id = id
@@ -95,9 +95,8 @@ class ShimmingServer():
         # create a GenericClient object for keeping track of who is connected.
         generated_id = self._generate_id()
         new_client = GenericClient(conn, addr, message, generated_id, name)
-        id = new_client.id
-        self.connected_clients[id] = new_client
-        clients_on_registry = self.connected_clients
+        self.connected_clients[new_client.id] = new_client
+        clients_on_registry[name] = new_client
 
         # add the new client to the selector, we're ready to listen to it.
         self.sel.register(conn, selectors.EVENT_READ, data=message)
@@ -131,8 +130,9 @@ class ShimmingServer():
                             print(f"Removed client {client.id} which was at {client.addr}")
                             del client
                             break
+                    name = self.connected_clients[id].name
                     del self.connected_clients[id]
-                    del clients_on_registry[id]
+                    del clients_on_registry[name]
                 except Exception:
                     print(
                         f"Main: Error: Exception for {message.addr}:\n"
@@ -149,12 +149,6 @@ server = ShimmingServer()
 server.start()
 
 try:
-    # TODO: write a better server stop system.
-    # if running is false, it should go through and do all the remaining write events and close
-    # everything that's on the server.
-    # this is a crash-stop.
-    # ideally we would finish processing the events in the for loop
-    # before we actually close the server.
     while server.running:
         server.main_loop()
 except KeyboardInterrupt:

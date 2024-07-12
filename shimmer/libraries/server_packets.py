@@ -6,7 +6,7 @@ import sys
 import logging
 
 from .parser import parse
-from .name_resolver import registry
+from .name_resolver import registry, get_socket
 
 server_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_server.log",
@@ -41,6 +41,9 @@ class Message:
         self.request = None
         self.response_created = False
         self.disconnect = False  # sentinel for whether to disconnect this socket or not.
+
+        # we need some additional things for inter-client messages.
+        self.message_sent = False
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -79,7 +82,16 @@ class Message:
         self.jsonheader = None
         self.request = None
         self.response_created = False
+        
+        if self.message_sent:
+            # if we send a message, we should go back to listening to the old socket.
+            self.sock = self.old_sock
+            self.addr = self.old_addr
+            self.message_sent = False  # reset that
+            # and send the same response again (so don't change the selector)
+            return
 
+        # after we send something, we should be ready to listen again.
         self._set_selector_events_mask("r")
 
 
@@ -269,29 +281,30 @@ class Message:
             encoding = self.jsonheader["content-encoding"]
             self.request = self._json_decode(data, encoding)
            
-            if not self.request["value"][0] == "!":  # server commands don't start with !
+            command = self.request["value"]
+
+            if not command[0] == "!":  # server commands don't start with !
+                print("server command recieved")
                 self._set_selector_events_mask("w")  # set here because we never reach bottom of this function.
                 # HACK: there has got to be a more pythonic way than raising an exception.
                 raise CommandRecieved(self.request.get("value"))  # escapes us to main loop and takes the rest of the command with it.
             
-            print(self.request["value"][1:])
-            command_tokens = parse(self.request["value"][1:])  # don't try and parse the !
+            command_tokens = parse(command)
 
-            if command_tokens[0] == "disconnect":
-                print("doing disconnect")
+            if command_tokens[0] == "!disconnect":
                 self.disconnect = True 
-            elif command_tokens[0] == "message":
+            elif command_tokens[0] == "!message":
                 try:
                     to = command_tokens[1]
                     content = command_tokens[2]
                     try:
+                        # configure to send response to destination message
+                        self.old_sock = self.sock
+                        self.old_addr = self.addr
                         to_address = (registry[to]["address"], registry[to]["port"])
                         self.addr = to_address
-                        print(f"Will send response to {self.addr}")
-                        # TODO:but to do this we need the sock object... how does this packet get that? we have our own socket,
-                        # but not theirs.
-                        # no, better way is to create a second response, coordinated by the server.
-                        raise CommandRecieved(self.request.get("value"))  # escapes us to main loop and takes the rest of the command with it.
+                        self.sock = get_socket(to)
+                        self.message_sent = True
                     except KeyError:
                         print("That's not a valid address!")
                     
@@ -307,6 +320,8 @@ class Message:
             )
         # Set selector to listen for write events, we're done reading.
         self._set_selector_events_mask("w")
+        # TODO: monday: server needs to send two responses on command sent.
+        # then try and get it being current packages
 
     def create_response(self):
         """Decide which sort of response we send back to the client and add it to the send buffer."""

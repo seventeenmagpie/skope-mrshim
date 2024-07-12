@@ -5,6 +5,8 @@ import struct
 import sys
 import logging
 
+from libraries.parser import parse
+
 client_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_clients.log",
                     level=logging.DEBUG,
@@ -29,6 +31,8 @@ class Message:
         self._jsonheader_len = None
         self.jsonheader = None
         self.response = None
+
+        self.message_sent = False
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -148,10 +152,12 @@ class Message:
 
         self._write()
 
-        if self._request_queued:
-            if not self._send_buffer:
-                # Set selector to listen for read events, we're done writing.
-                self._set_selector_events_mask("r")
+        if self._request_queued:  # if we have been sending a packet
+            if not self._send_buffer:  # but we've sent all of it.
+                if not self.message_sent:  # and it wasn't inter-client (we don't get a response to those)
+                    # Set selector to listen for read events, we're done writing.
+                    self._set_selector_events_mask("r")
+                    self.message_sent = False  # reset that.
 
 
     def close(self):

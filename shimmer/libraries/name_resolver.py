@@ -11,6 +11,6 @@ except tomli.TOMLDecodeError:
 
 def get_socket(name):
     print(clients_on_registry)
-    pass
+    return clients_on_registry[name].socket
 
 registry, clients_on_registry

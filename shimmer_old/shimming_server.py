@@ -4,17 +4,20 @@ import selectors
 import socket
 import sys
 import traceback
-import tomli
 
+# the dict containing all the network component names and addresses
+from name_resolver import registry, clients_on_registry
+from parser import parse
 from server_packets import Message, CommandRecieved, ClientDisconnect, server_logger
 
 class GenericClient():
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
-    def __init__(self, conn, addr, message, id):
+    def __init__(self, conn, addr, message, id, name):
         self.conn = conn
         self.addr = addr
         self.message = message
         self.id = id
+        self.name = name  # the role name for this client
 
 # TODO: does this really need to be a class?
 class ShimmingServer():
@@ -27,8 +30,8 @@ class ShimmingServer():
         self.last_used_id = 0
         self.id = 0
 
-        self.host = config["server"]["address"]
-        self.port = config["server"]["port"]
+        self.host = registry["server"]["address"]
+        self.port = registry["server"]["port"]
 
     def _generate_id(self):
         """Generate the next unused internal id.
@@ -51,24 +54,27 @@ class ShimmingServer():
         self.lsock.setblocking(False)
         # adds this socket to the register is a read type io.
         self.sel.register(self.lsock, selectors.EVENT_READ, data=None)
+     
 
-    def handle_command_string(self, command_string: str):
+    def handle_command_string(self, command_string):
         """Handle a the command part of a 'command' type packet."""
-        # TODO: add a parser and so on. use the frynab cli stuff.
-        if command_string == "halt":
+        command_tokens = parse(command_string)
+        if command_tokens[0] == "halt":
             print("Halting server")
             self.running = False
-        elif command_string == "start":
+        elif command_tokens[0] == "start":
             print("Starting shimming")
             self.shimming = True
-        elif command_string == "stop":
+        elif command_tokens[0] == "stop":
             print("Stopping shimming")
             self.shimming = False
-        elif command_string == "list":
+        elif command_tokens[0] == "list":
             print("Listing connected clients:")
             for id, client in self.connected_clients.items():
                 print(f" - id:{id} @ {client.addr[0]}:{client.addr[1]},")
-        elif command_string == "status":
+            print(clients_on_registry)
+            # TODO: you were re-writing dns. maybe reconsider.
+        elif command_tokens[0] == "status":
             print(f"Server {'is' if self.running else 'is not'} running and shimming is {'enabled' if self.shimming else 'disabled'}.")
 
 
@@ -80,18 +86,18 @@ class ShimmingServer():
         # create a message object to do the talking on.
         message = Message(self.sel, conn, addr)
         
-        print(config)
-        print(f"{addr[0]} and {addr[1]}")
-        # work out which role the newly connected client fits
-        for role, address_dict in config.items():
-            if (addr[0] == address_dict["port"]) and (addr[1] == address_dict["port"]):
+        # work out which role the newly connected client is by comparing against the directory registry file.
+        for role, address_dict in registry.items():
+            if (addr[0] == address_dict["address"]) and (addr[1] == address_dict["port"]):
                 print(f"{role} just connected.")
+                name = role
 
         # create a GenericClient object for keeping track of who is connected.
         generated_id = self._generate_id()
-        new_client = GenericClient(conn, addr, message, generated_id)
+        new_client = GenericClient(conn, addr, message, generated_id, name)
         id = new_client.id
         self.connected_clients[id] = new_client
+        clients_on_registry = self.connected_clients
 
         # add the new client to the selector, we're ready to listen to it.
         self.sel.register(conn, selectors.EVENT_READ, data=message)
@@ -125,6 +131,7 @@ class ShimmingServer():
                             del client
                             break
                     del self.connected_clients[id]
+                    del clients_on_registry[id]
                 except Exception:
                     print(
                         f"Main: Error: Exception for {message.addr}:\n"
@@ -135,13 +142,6 @@ class ShimmingServer():
 
 if len(sys.argv) != 1:
     print(f"Usage: {sys.argv[0]}")
-    sys.exit(1)
-
-try:
-    with open("config.toml", "rb") as f:
-        config = tomli.load(f)
-except tomli.TOMLDecodeError:
-    print("Invalid config file.")
     sys.exit(1)
 
 server = ShimmingServer()

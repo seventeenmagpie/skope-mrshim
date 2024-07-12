@@ -7,7 +7,12 @@ import logging
 
 client_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_clients.log",
-                    level=logging.DEBUG)
+                    level=logging.DEBUG,
+                    filemode = "w")
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
+client_logger.addHandler(handler)
 
 class ClientDisconnect(Exception):
     pass

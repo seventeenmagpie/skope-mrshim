@@ -5,9 +5,17 @@ import struct
 import sys
 import logging
 
+from parser import parse
+from name_resolver import registry
+
 server_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_server.log",
-                    level=logging.DEBUG)
+                    level=logging.DEBUG,
+                    filemode="w")
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
+server_logger.addHandler(handler)
 
 class CommandRecieved(Exception):
     """Raised when a server command needs executing.
@@ -257,15 +265,36 @@ class Message:
             server_logger.info(f"Received request {self.request!r} from {self.addr}")
 
         elif self.jsonheader["content-type"] == "command":
-            server_logger.debug("Command packet recieved. Attempting to escape.")
+            server_logger.debug("Command packet recieved.")
             encoding = self.jsonheader["content-encoding"]
             self.request = self._json_decode(data, encoding)
-
-            if not self.request["value"] == "disconnect":
+           
+            if not self.request["value"][0] == "!":  # server commands don't start with !
                 self._set_selector_events_mask("w")  # set here because we never reach bottom of this function.
-                raise CommandRecieved(self.request.get("value"))  # escapes us to main loop.
-            elif self.request["value"] == "disconnect":  # disconnent commands are different and don't require we go into the main loop yet.
+                # HACK: there has got to be a more pythonic way than raising an exception.
+                raise CommandRecieved(self.request.get("value")[1:])  # escapes us to main loop and takes the rest of the command with it.
+            
+            command_tokens = parse(self.request["value"])
+
+            if command_tokens[0] == "!disconnect":
                 self.disconnect = True 
+            elif command_tokens[0] == "!message":
+                try:
+                    to = command_tokens[1]
+                    content = command_tokens[2]
+                    try:
+                        to_address = (registry[to]["address"], registry[to]["port"])
+                        self.addr = to_address
+                        print(f"Will send response to {self.addr}")
+                        # TODO:but to do this we need the sock object... how does this packet get that? we have our own socket,
+                        # but not theirs.
+                        # no, better way is to create a second response, coordinated by the server.
+                        raise CommandRecieved(self.request.get("value"))  # escapes us to main loop and takes the rest of the command with it.
+                    except KeyError:
+                        print("That's not a valid address!")
+                    
+                except IndexError:
+                    print("Usage: message <to> \"<message content>\"")
 
         else:
             # Binary or unknown content-type

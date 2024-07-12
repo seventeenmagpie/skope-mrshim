@@ -8,7 +8,7 @@ import tomli
 
 from client_packets import Message, client_logger, ClientDisconnect
 
-class CommandPrompt():
+class CommandPrompt:
     """A class to be the command prompt so that we can put it on the selector and select into at the correct times."""
     def __init__(self, selector):
         self.addr = "I'm a command prompt."
@@ -37,7 +37,6 @@ class CommandPrompt():
         send_request(sock, addr, request)
         # once a command is sent, the prompt should wait for a response.
         self._set_selector_events_mask("r")
-        
 
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
@@ -76,12 +75,17 @@ def create_request(action, value):
 def start_connection(host, port):
     """Try and make a connection to the server, add this socket to the selector."""
     addr = (host, port)
-    my_address = (config["console"]["address"], config["console"]["port"])
+    console_number = int(input("Enter console number (1 or 2): "))
+    port = 25000 + console_number
+    my_address = (config["console1"]["address"], port)
 
     print(f"Starting connection to {addr}")
-    sock = socket.create_connection(addr, source_address = my_address)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # SO_REUSEADDR avoids bind() exception: OSError: [Errno 48] Address already in use 
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(my_address)
     sock.setblocking(False)
+    sock.connect_ex(addr)
 
     events = selectors.EVENT_READ
     # add yourself to the register if successful.
@@ -125,9 +129,9 @@ sel.register(0, selectors.EVENT_WRITE, data=prompt)
 try:
     while True:
         events = sel.select(timeout=0)  # get waiting io events. timeout = 0 to wait without blocking.
-        client_logger.debug(f"There are {len(events)} things in events.")
+        #client_logger.debug(f"There are {len(events)} things in events.")
         for key, mask in events:
-            client_logger.debug("mask is {mask}")
+            client_logger.debug(f"mask is {mask}")
            
             message = key.data
             try:

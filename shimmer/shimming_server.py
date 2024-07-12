@@ -6,9 +6,9 @@ import sys
 import traceback
 
 # the dict containing all the network component names and addresses
-from name_resolver import registry, clients_on_registry
-from parser import parse
-from server_packets import Message, CommandRecieved, ClientDisconnect, server_logger
+from libraries.name_resolver import registry, clients_on_registry
+from libraries.parser import parse
+from libraries.server_packets import Message, CommandRecieved, ClientDisconnect, server_logger
 
 class GenericClient():
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""

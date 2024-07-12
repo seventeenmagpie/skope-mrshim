@@ -6,7 +6,8 @@ import sys
 import traceback
 import tomli
 
-from client_packets import Message, client_logger, ClientDisconnect
+from libraries.client_packets import Message, client_logger, ClientDisconnect
+from libraries.name_resolver import registry
 
 class CommandPrompt:
     """A class to be the command prompt so that we can put it on the selector and select into at the correct times."""
@@ -77,7 +78,7 @@ def start_connection(host, port):
     addr = (host, port)
     console_number = int(input("Enter console number (1 or 2): "))
     port = 25000 + console_number
-    my_address = (config["console1"]["address"], port)
+    my_address = (registry["console1"]["address"], port)
 
     print(f"Starting connection to {addr}")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -106,19 +107,12 @@ if len(sys.argv) != 1:
     print(f"Usage: {sys.argv[0]}")
     sys.exit(1)
 
-# load the config file
-try:
-    with open("config.toml", "rb") as f:
-        config = tomli.load(f)
-except tomli.TOMLDecodeError:
-    print("Invalid config file.")
-    sys.exit(1)
 
 # create the selector
 sel = selectors.DefaultSelector()
 
 # connect to the server
-host, port = config["server"]["address"], config["server"]["port"]
+host, port = registry["server"]["address"], registry["server"]["port"]
 sock, addr = start_connection(host, port) 
 
 # create and register the command prompt.

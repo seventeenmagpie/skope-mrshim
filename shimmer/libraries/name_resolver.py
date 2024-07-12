@@ -3,7 +3,7 @@ import tomli
 clients_on_registry = {}
 
 try:
-    with open("config.toml", "rb") as f:
+    with open("network_description.toml", "rb") as f:
         registry = tomli.load(f)
 except tomli.TOMLDecodeError:
     print("Invalid config file.")

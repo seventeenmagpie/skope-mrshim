@@ -5,8 +5,8 @@ import struct
 import sys
 import logging
 
-from parser import parse
-from name_resolver import registry
+from .parser import parse
+from .name_resolver import registry
 
 server_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_server.log",

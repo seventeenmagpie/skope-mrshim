@@ -5,7 +5,7 @@ import socket
 import sys
 import traceback
 
-from client_packets import Message, client_logger
+from libraries.client_packets import Message, client_logger
 
 sel = selectors.DefaultSelector()
 

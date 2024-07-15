@@ -6,16 +6,17 @@ import sys
 import logging
 
 from .parser import parse
-from .name_resolver import registry, get_socket
+from .name_resolver import registry, get_socket, get_name_from_address
 
 server_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_server.log",
-                    level=logging.DEBUG,
+                    level=logging.INFO,
                     filemode="w")
 
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
-server_logger.addHandler(handler)
+# uncomment to enable the debug messages to be printed to the console as well as the file
+#handler = logging.StreamHandler(sys.stdout)
+#handler.setLevel(logging.INFO)
+#server_logger.addHandler(handler)
 
 class CommandRecieved(Exception):
     """Raised when a server command needs executing.
@@ -42,8 +43,9 @@ class Message:
         self.response_created = False
         self.disconnect = False  # sentinel for whether to disconnect this socket or not.
 
-        # we need some additional things for inter-client messages.
-        self.message_sent = False
+        self.is_relayed_message = False  # is this the message created by the server to pass on?
+        self.from_address = None
+        self.from_socket = None
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -82,15 +84,8 @@ class Message:
         self.jsonheader = None
         self.request = None
         self.response_created = False
+        self.is_relayed_message = False
         
-        if self.message_sent:
-            # if we send a message, we should go back to listening to the old socket.
-            self.sock = self.old_sock
-            self.addr = self.old_addr
-            self.message_sent = False  # reset that
-            # and send the same response again (so don't change the selector)
-            return
-
         # after we send something, we should be ready to listen again.
         self._set_selector_events_mask("r")
 
@@ -110,12 +105,11 @@ class Message:
                 # once whole response sent and buffer drained,
                 # clear protoheader, header and request, go back to waiting for read events.
                 if sent and not self._send_buffer:
+                    # print("sent and send buffer empty")
                     self._clear()
                     if self.disconnect:
-                        print("server is disconnecting client")
                         self.close()
                         raise ClientDisconnect(self.addr)
-
 
 
     def _json_encode(self, obj, encoding):
@@ -151,11 +145,19 @@ class Message:
         action = self.request.get("action")
         if action == "command":
             command = self.request.get("value")
-            content = {"result": f"Command {command} recieved by server."}
-
+            command_tokens = parse(command)
+            content = {"result": f"Command {command_tokens[0]} recieved by server."}
+            
+            # generate the response message if we are disconnected
             if self.disconnect:
                 server_logger.debug("creating disconnect response")
                 content = {"result": f"disconnect"}
+
+            if self.is_relayed_message:
+                # from is a Python keyword.
+                from_name = get_name_from_address(self.from_address)
+                message = command_tokens[2]
+                content = {"result": f"Message recieved from {from_name}: {message}"}
 
         else:
             content = {"result": f"Error: invalid action '{action}'."}
@@ -179,12 +181,13 @@ class Message:
 
     def process_events(self, mask):
         """Read or write depending on state of socket."""
+        # print(f"I am a {'relayed message' if self.is_relayed_message else 'regular packet.'}")
         server_logger.debug("processing events")
         if mask & selectors.EVENT_READ:
-            server_logger.debug("server is reading")
+            #print("server is reading")
             self.read()
         if mask & selectors.EVENT_WRITE:
-            server_logger.debug("server is writing")
+            #print("server is writing")
             self.write()
 
     def read(self):
@@ -284,7 +287,7 @@ class Message:
             command = self.request["value"]
 
             if not command[0] == "!":  # server commands don't start with !
-                print("server command recieved")
+                # print("server command recieved")
                 self._set_selector_events_mask("w")  # set here because we never reach bottom of this function.
                 # HACK: there has got to be a more pythonic way than raising an exception.
                 raise CommandRecieved(self.request.get("value"))  # escapes us to main loop and takes the rest of the command with it.
@@ -293,23 +296,6 @@ class Message:
 
             if command_tokens[0] == "!disconnect":
                 self.disconnect = True 
-            elif command_tokens[0] == "!message":
-                try:
-                    to = command_tokens[1]
-                    content = command_tokens[2]
-                    try:
-                        # configure to send response to destination message
-                        self.old_sock = self.sock
-                        self.old_addr = self.addr
-                        to_address = (registry[to]["address"], registry[to]["port"])
-                        self.addr = to_address
-                        self.sock = get_socket(to)
-                        self.message_sent = True
-                    except KeyError:
-                        print("That's not a valid address!")
-                    
-                except IndexError:
-                    print("Usage: message <to> \"<message content>\"")
 
         else:
             # Binary or unknown content-type
@@ -320,18 +306,16 @@ class Message:
             )
         # Set selector to listen for write events, we're done reading.
         self._set_selector_events_mask("w")
-        # TODO: monday: server needs to send two responses on command sent.
-        # then try and get it being current packages
 
     def create_response(self):
-        """Decide which sort of response we send back to the client and add it to the send buffer."""
+        """Decide which type of response we send back to the client and add it to the send buffer."""
         if self.jsonheader["content-type"] == "text/json":
             response = self._create_response_json_content()
         elif self.jsonheader["content-type"] == "command":
             response = self._create_response_json_content()
         else:
             response = self._create_response_binary_content()
-
+        
         message = self._create_message(**response)
         self.response_created = True
         self._send_buffer += message

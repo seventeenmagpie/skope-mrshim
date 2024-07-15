@@ -4,11 +4,13 @@ import selectors
 import socket
 import sys
 import traceback
+import copy
 
-# the dict containing all the network component names and addresses
-from libraries.name_resolver import registry, clients_on_registry
+from libraries.name_resolver import registry, clients_on_registry, get_address, get_socket
 from libraries.parser import parse
 from libraries.server_packets import Message, CommandRecieved, ClientDisconnect, server_logger
+
+debugging = False
 
 class GenericClient():
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
@@ -29,9 +31,10 @@ class ShimmingServer():
         self.sel = selectors.DefaultSelector()
         self.last_used_id = 0
         self.id = 0
-
-        self.host = registry["server"]["address"]
-        self.port = registry["server"]["port"]
+        
+        self.address = get_address("server")
+        self.host = self.address[0]
+        self.port = self.address[1]
 
     def _generate_id(self):
         """Generate the next unused internal id.
@@ -72,10 +75,39 @@ class ShimmingServer():
             print("Listing connected clients:")
             for id, client in self.connected_clients.items():
                 print(f" - id:{id} @ {client.addr[0]}:{client.addr[1]},")
-            print(clients_on_registry)
-            # TODO: you were re-writing dns. maybe reconsider.
         elif command_tokens[0] == "status":
             print(f"Server {'is' if self.running else 'is not'} running and shimming is {'enabled' if self.shimming else 'disabled'}.")
+        elif command_tokens[0] == "message":
+            try:
+                to = command_tokens[1]
+                content = command_tokens[2]
+                try:
+                    # create copy of current message
+                    # access to field of content
+                    # perform "dns-like" lookup to access the socket associated
+                    # change the socket and address of the copy to this.
+                    # add it to the register in write mode
+                    # add a tag to this message so it knows it's a message sent
+                    # because it should be closed after it was sent
+                    # (so it needs to self destruct)
+                    self.duplicate_message = copy.copy(self.current_message)
+                    
+                    new_sock = get_socket(to)
+                    new_addr = get_address(to)
+
+                    self.duplicate_message.from_socket = self.duplicate_message.sock
+                    self.duplicate_message.from_address = self.duplicate_message.addr
+
+                    self.duplicate_message.sock = new_sock
+                    self.duplicate_message.addr = new_addr
+
+                    self.duplicate_message.is_relayed_message = True
+                    
+                    self.duplicate_message.selector.modify(new_sock, selectors.EVENT_WRITE, data=self.duplicate_message)
+                except KeyError:
+                    print("That's not a current client.")      
+            except IndexError:
+                print("Usage: message <to> \"<message content>\"")
 
 
     def accept_wrapper(self, sock):
@@ -105,23 +137,26 @@ class ShimmingServer():
         """Choose the socket to send/recieve on and do that. Catch commands and disconnects."""
         events = self.sel.select(timeout=None)  # set of waiting io
 
-        server_logger.debug(f"There are {len(events)} things in events.")
+        if debugging == True:
+            print("Selector contents:")
+            for key, mask in events:
+                if key.data is not None:
+                    print(f" - Port: {key.data.addr[1]} ({'' if key.data.is_relayed_message else 'not '}a message) is in mode {mask},")
+
         for key, mask in events:  # iterate through waiting sockets.
             # key is a NamedTuple with the socket number and data=message. mask is the io type.
-            server_logger.debug(f"mask is {mask}")
-
             if key.data is None:  # this is a new socket, we should accept it.
                 self.accept_wrapper(key.fileobj)
             else:  # otherwise we should process it.
                 if key.data.request:
                     server_logger.debug(f"Key request is {key.data.request}")
             
-                message = key.data
+                self.current_message = key.data
                 try:
-                    message.process_events(mask)
+                    self.current_message.process_events(mask)
                 # during processing, one of the folliwng special exceptions may arise.
                 except CommandRecieved as command_string:
-                    print(f"doing command {command_string}")
+                    # print(f"doing command {command_string}")
                     self.handle_command_string(str(command_string))  # str() because exceptions object is not a string.
                 except ClientDisconnect as disconnect_addr:
                     # remove from internal list of clients
@@ -135,10 +170,10 @@ class ShimmingServer():
                     del clients_on_registry[name]
                 except Exception:
                     print(
-                        f"Main: Error: Exception for {message.addr}:\n"
+                        f"Main: Error: Exception for {self.current_message.addr}:\n"
                         f"{traceback.format_exc()}"
                     )
-                    message.close()
+                    self.current_message.close()
   
 
 if len(sys.argv) != 1:

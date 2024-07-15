@@ -12,7 +12,7 @@ from libraries.name_resolver import registry
 class CommandPrompt:
     """A class to be the command prompt so that we can put it on the selector and select into at the correct times."""
     def __init__(self, selector):
-        self.addr = "I'm a command prompt."
+        self.addr = ("command", "prompt")
         self.selector = selector
 
     def _set_selector_events_mask(self, mode):
@@ -30,14 +30,19 @@ class CommandPrompt:
 
     def send_command(self):
         """Input a command string from the user, turn it into a request and send it to the server."""
+
         command_string = input("[shimmer]: ")
         action = "command"
         value = command_string
-        request = create_request(action, value)
-        client_logger.info(f"Created request is: {request}")
-        send_request(sock, addr, request)
-        # once a command is sent, the prompt should wait for a response.
-        self._set_selector_events_mask("r")
+        if command_string:
+            request = create_request(action, value)
+            client_logger.info(f"Created request is: {request}")
+            send_request(sock, addr, request)
+            # once a command is sent, we shouldn't send another until the response is back
+            # NOTE: the response packet will set this back to w.
+            self._set_selector_events_mask("r")
+        else:
+            print("Please enter a command!")
 
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
@@ -119,14 +124,27 @@ sock, addr = start_connection(host, port)
 prompt = CommandPrompt(sel)
 sel.register(0, selectors.EVENT_WRITE, data=prompt)
 
+debugging = False
 
 try:
     while True:
         events = sel.select(timeout=0)  # get waiting io events. timeout = 0 to wait without blocking.
         #client_logger.debug(f"There are {len(events)} things in events.")
-        for key, mask in events:
-            client_logger.debug(f"mask is {mask}")
-           
+        
+        # sort by mask so list now in order read -> write -> read/write
+        # NOTE: was included to try and help auto-inbox
+        # but command prompt input() is always blocking
+        # auto-inbox no work.
+        # TODO: to fix input blocking would need to create a true console gui with something like curses. not now.
+        events_sorted_read_priority = sorted(events, key = lambda key_mask_pair: key_mask_pair[1])
+
+        if debugging == True:
+            # print("Selector contents:")
+            for key, mask in events_sorted_read_priority:
+                if key.data is not None:
+                    print(f" - Port: {key.data.addr[1]} is in mode {mask},")
+
+        for key, mask in events_sorted_read_priority:
             message = key.data
             try:
                 message.process_events(mask)
@@ -140,6 +158,7 @@ try:
                     f"{traceback.format_exc()}"
                 )
                 message.close()
+
 
 except KeyboardInterrupt:
     print("Exiting program! Take care :)")

@@ -12,9 +12,10 @@ logging.basicConfig(filename = "./logs/shimmer_clients.log",
                     level=logging.DEBUG,
                     filemode = "w")
 
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
-client_logger.addHandler(handler)
+# uncomment to enable the logging messages to be printed to the console as well as log file
+#handler = logging.StreamHandler(sys.stdout)
+#handler.setLevel(logging.INFO)
+#client_logger.addHandler(handler)
 
 class ClientDisconnect(Exception):
     pass
@@ -31,8 +32,6 @@ class Message:
         self._jsonheader_len = None
         self.jsonheader = None
         self.response = None
-
-        self.message_sent = False
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -111,6 +110,7 @@ class Message:
         content = self.response
         result = content.get("result")
         client_logger.info(f"Got result: {result}")
+        print(result)
 
         if result == "disconnect":  # special case for the disconnect command.
            client_logger.debug("raising client disconnect")
@@ -154,11 +154,8 @@ class Message:
 
         if self._request_queued:  # if we have been sending a packet
             if not self._send_buffer:  # but we've sent all of it.
-                if not self.message_sent:  # and it wasn't inter-client (we don't get a response to those)
-                    # Set selector to listen for read events, we're done writing.
-                    self._set_selector_events_mask("r")
-                    self.message_sent = False  # reset that.
-
+                # Set selector to listen for read events, we're done writing.
+                self._set_selector_events_mask("r")
 
     def close(self):
         """Unregister from the selector and close the connection."""
@@ -196,6 +193,12 @@ class Message:
                 "content_type": content_type,
                 "content_encoding": content_encoding,
             }
+            
+            if content["value"] == "!reader":
+                # if reader is called we need to read from the socket
+                # rather than send something
+                self._set_selector_events_mask("r")
+                return
         else:
             req = {
                 "content_bytes": content,
@@ -251,13 +254,12 @@ class Message:
         else:
             # Binary or unknown content-type
             self.response = data
-            print(
+            client_logger.info(
                 f"Received {self.jsonheader['content-type']} "
                 f"response from {self.addr}"
             )
             self._process_response_binary_content()
         
-        # once a response has been read, we're ready to recieve another command and send it on this port
-        self._set_selector_events_mask("w")  # can send data on this port
+        self._set_selector_events_mask("r")
         console_object = self.selector.get_key(0).data
         self.selector.modify(0, selectors.EVENT_WRITE, data=console_object)  # can recieve another command

@@ -6,7 +6,6 @@ import sys
 import traceback
 import copy
 
-from libraries.generic_client import GenericClient
 import libraries.registry as registry
 from libraries.parser import parse
 from libraries.server_packets import Message, server_logger
@@ -17,10 +16,9 @@ debugging = False
 class ModelClient:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
 
-    def __init__(self, conn, addr, message, id, name):
+    def __init__(self, conn, addr, id, name):
         self.socket = conn
         self.addr = addr
-        self.message = message
         self.id = id
         self.name = name  # the role name for this client generic client object.
 
@@ -101,7 +99,7 @@ class ShimmingServer:
 
         # create a GenericClient object for keeping track of who is connected.
         generated_id = self._generate_id()
-        new_client = ModelClient(conn, addr, message, generated_id, name)
+        new_client = ModelClient(conn, addr, generated_id, name)
         registry.clients_on_registry[name] = new_client
 
         # add the new client to the selector, we're ready to listen to it.

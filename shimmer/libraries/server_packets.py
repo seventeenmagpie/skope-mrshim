@@ -8,7 +8,7 @@ import copy
 
 import libraries.registry as registry
 from .parser import parse
-from .exceptions import CommandRecieved
+from .exceptions import CommandRecieved, ClientDisconnect
 
 server_logger = logging.getLogger(__name__)
 logging.basicConfig(

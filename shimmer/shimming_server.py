@@ -6,6 +6,7 @@ import sys
 import traceback
 import copy
 
+from libraries.generic_client import GenericClient
 import libraries.registry as registry
 from libraries.parser import parse
 from libraries.server_packets import Message, server_logger
@@ -13,8 +14,7 @@ from libraries.exceptions import CommandRecieved, ClientDisconnect
 
 debugging = False
 
-
-class GenericClient:
+class ModelClient:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
 
     def __init__(self, conn, addr, message, id, name):
@@ -22,7 +22,7 @@ class GenericClient:
         self.addr = addr
         self.message = message
         self.id = id
-        self.name = name  # the role name for this client
+        self.name = name  # the role name for this client generic client object.
 
 
 # TODO: does this really need to be a class?
@@ -32,9 +32,6 @@ class ShimmingServer:
     def __init__(self):
         self.running = True
         self.shimming = False
-        self.connected_clients = (
-            {}
-        )  # stores connected clients. id (int) : client (GenericClient)
         self.sel = selectors.DefaultSelector()
         self.last_used_id = 0
         self.id = 0
@@ -79,8 +76,8 @@ class ShimmingServer:
             self.shimming = False
         elif command_tokens[0] == "list":
             print("Listing connected clients:")
-            for id, client in self.connected_clients.items():
-                print(f" - id:{id} @ {client.addr[0]}:{client.addr[1]},")
+            for name, client in registry.clients_on_registry.items():
+                print(f" - {name}({client.id}) @ {client.addr[0]}:{client.addr[1]},")
         elif command_tokens[0] == "status":
             print(
                 f"Server {'is' if self.running else 'is not'} running and shimming is {'enabled' if self.shimming else 'disabled'}."
@@ -104,8 +101,7 @@ class ShimmingServer:
 
         # create a GenericClient object for keeping track of who is connected.
         generated_id = self._generate_id()
-        new_client = GenericClient(conn, addr, message, generated_id, name)
-        self.connected_clients[new_client.id] = new_client
+        new_client = ModelClient(conn, addr, message, generated_id, name)
         registry.clients_on_registry[name] = new_client
 
         # add the new client to the selector, we're ready to listen to it.
@@ -142,15 +138,13 @@ class ShimmingServer:
                     )  # str() because exceptions object is not a string.
                 except ClientDisconnect as disconnect_addr:
                     # remove from internal list of clients
-                    for id, client in self.connected_clients.items():
+                    for name, client in registry.clients_on_registry.items():
                         if str(client.addr) == str(disconnect_addr):
                             print(
-                                f"Removed client {client.id} which was at {client.addr}"
+                                f"Removed client {client.name} which was at {client.addr}"
                             )
                             del client
                             break
-                    name = self.connected_clients[id].name
-                    del self.connected_clients[id]
                     del registry.clients_on_registry[name]
                 except Exception:
                     print(
@@ -174,7 +168,5 @@ except KeyboardInterrupt:
     print("Caught keyboard interrupt, exiting")
 finally:
     # TODO: disconnect all clients nicely.
-    for id, client in server.connected_clients.items():
-        pass
     server.sel.close()
     print("Have a nice day :) - mags")

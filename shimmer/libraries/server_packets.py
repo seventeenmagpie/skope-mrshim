@@ -8,6 +8,7 @@ import copy
 
 from .parser import parse
 from .name_resolver import registry, get_socket, get_name_from_address, get_address
+from .exceptions import CommandRecieved
 
 server_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_server.log",
@@ -18,18 +19,6 @@ logging.basicConfig(filename = "./logs/shimmer_server.log",
 #handler = logging.StreamHandler(sys.stdout)
 #handler.setLevel(logging.DEBUG)
 #server_logger.addHandler(handler)
-
-class CommandRecieved(Exception):
-    """Raised when a server command needs executing.
-
-    Takes execution back to the main loop when a command is executed that affects server state."""
-    pass
-
-class ClientDisconnect(Exception):
-    """Raised when a client disconnects.
-
-    Called after the socket is closed and deregistered, so the main server process can stop keeping track of it."""
-    pass
 
 class Message:
     def __init__(self, selector, sock, addr):

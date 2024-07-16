@@ -5,6 +5,7 @@ import struct
 import sys
 import logging
 
+from libraries.exceptions import ClientDisconnect
 from libraries.parser import parse
 from libraries.name_resolver import get_name_from_address
 
@@ -17,9 +18,6 @@ logging.basicConfig(filename = "./logs/shimmer_clients.log",
 #handler = logging.StreamHandler(sys.stdout)
 #handler.setLevel(logging.DEBUG)
 #client_logger.addHandler(handler)
-
-class ClientDisconnect(Exception):
-    pass
 
 class Message:
     def __init__(self, selector, sock, addr, request):

@@ -8,7 +8,8 @@ import copy
 
 from libraries.name_resolver import registry, clients_on_registry, get_address, get_socket
 from libraries.parser import parse
-from libraries.server_packets import Message, CommandRecieved, ClientDisconnect, server_logger
+from libraries.server_packets import Message, server_logger
+from libraries.exceptions import CommandRecieved, ClientDisconnect 
 
 debugging = False
 

@@ -6,7 +6,8 @@ import sys
 import traceback
 import tomli
 
-from libraries.client_packets import Message, client_logger, ClientDisconnect
+from libraries.exceptions import ClientDisconnect
+from libraries.client_packets import Message, client_logger
 from libraries.name_resolver import registry
 from libraries.parser import parse
 

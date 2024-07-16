@@ -7,17 +7,17 @@ import logging
 
 from libraries.exceptions import ClientDisconnect
 from libraries.parser import parse
-from libraries.name_resolver import get_name_from_address
 
 client_logger = logging.getLogger(__name__)
-logging.basicConfig(filename = "./logs/shimmer_clients.log",
-                    level=logging.DEBUG,
-                    filemode = "w")
+logging.basicConfig(
+    filename="./logs/shimmer_clients.log", level=logging.DEBUG, filemode="w"
+)
 
 # uncomment to enable the logging messages to be printed to the console as well as log file
-#handler = logging.StreamHandler(sys.stdout)
-#handler.setLevel(logging.DEBUG)
-#client_logger.addHandler(handler)
+# handler = logging.StreamHandler(sys.stdout)
+# handler.setLevel(logging.DEBUG)
+# client_logger.addHandler(handler)
+
 
 class Message:
     def __init__(self, selector, sock, addr, request):
@@ -51,9 +51,9 @@ class Message:
             # TODO: use curses to stop command input from being blocking.
             self.selector.modify(0, selectors.EVENT_WRITE, data=console_object)
 
-        # console_client.py sets this back to write once a command is recieved. 
+        # console_client.py sets this back to write once a command is recieved.
         self._set_selector_events_mask("r")
- 
+
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
         if mode == "r":
@@ -104,9 +104,7 @@ class Message:
 
     def _json_decode(self, json_bytes, encoding):
         """Decodes bytes into a json object."""
-        tiow = io.TextIOWrapper(
-            io.BytesIO(json_bytes), encoding=encoding, newline=""
-        )
+        tiow = io.TextIOWrapper(io.BytesIO(json_bytes), encoding=encoding, newline="")
         obj = json.load(tiow)
         tiow.close()
         return obj
@@ -123,7 +121,7 @@ class Message:
         }
 
         jsonheader.update(optional_header)
-        
+
         client_logger.info(f"jsonheader is: {jsonheader}")
         jsonheader_bytes = self._json_encode(jsonheader, "utf-8")
         message_hdr = struct.pack(">H", len(jsonheader_bytes))
@@ -138,8 +136,8 @@ class Message:
         print(result)
 
         if result == "disconnect":  # special case for the disconnect command.
-           client_logger.debug("raising client disconnect")
-           raise ClientDisconnect
+            client_logger.debug("raising client disconnect")
+            raise ClientDisconnect
 
     def _process_response_binary_content(self):
         """Process a binary response."""
@@ -187,10 +185,7 @@ class Message:
         try:
             self.selector.unregister(self.sock)
         except Exception as e:
-            print(
-                f"Error: selector.unregister() exception for "
-                f"{self.addr}: {e!r}"
-            )
+            print(f"Error: selector.unregister() exception for " f"{self.addr}: {e!r}")
 
         try:
             self.sock.close()
@@ -218,7 +213,7 @@ class Message:
                 "content_type": content_type,
                 "content_encoding": content_encoding,
             }
-            
+
             if content["value"] == "!reader":
                 # if reader is called we need to read from the socket
                 # rather than send something
@@ -226,14 +221,16 @@ class Message:
                 return
         elif content_type == "relay":
             req = {
-                "content_bytes": self._json_encode(content["value"]["content"], content_encoding),
+                "content_bytes": self._json_encode(
+                    content["value"]["content"], content_encoding
+                ),
                 "content_type": content_type,
                 "content_encoding": content_encoding,
             }
 
             optional_header_parts = {
-                        "to": content["value"]["to"],
-                "from": content["value"]["from"]
+                "to": content["value"]["to"],
+                "from": content["value"]["from"],
             }
 
             self.is_relay = True
@@ -251,19 +248,17 @@ class Message:
         """Process the protoheader that says how long the jsonheader is."""
         hdrlen = 2
         if len(self._recv_buffer) >= hdrlen:
-            self._jsonheader_len = struct.unpack(
-                ">H", self._recv_buffer[:hdrlen]
-            )[0]
-            self._recv_buffer = self._recv_buffer[hdrlen:]  # remove protoheader from buffer, we don't need it again.
+            self._jsonheader_len = struct.unpack(">H", self._recv_buffer[:hdrlen])[0]
+            self._recv_buffer = self._recv_buffer[
+                hdrlen:
+            ]  # remove protoheader from buffer, we don't need it again.
 
     def process_jsonheader(self):
         """Process the jsonheader that contains metadata about the contents."""
         hdrlen = self._jsonheader_len
 
-        if len(self._recv_buffer) >= hdrlen: # if we have recieved enough data
-            self.jsonheader = self._json_decode(
-                self._recv_buffer[:hdrlen], "utf-8"
-            )
+        if len(self._recv_buffer) >= hdrlen:  # if we have recieved enough data
+            self.jsonheader = self._json_decode(self._recv_buffer[:hdrlen], "utf-8")
             self._recv_buffer = self._recv_buffer[hdrlen:]  # remove from buffer.
             for reqhdr in (
                 "byteorder",
@@ -297,7 +292,9 @@ class Message:
                 f"response from {self.addr}"
             )
             self._process_response_binary_content()
-        
+
         self._clear()
         console_object = self.selector.get_key(0).data
-        self.selector.modify(0, selectors.EVENT_WRITE, data=console_object)  # can recieve another command
+        self.selector.modify(
+            0, selectors.EVENT_WRITE, data=console_object
+        )  # can recieve another command

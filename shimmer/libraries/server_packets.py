@@ -6,19 +6,20 @@ import sys
 import logging
 import copy
 
+import libraries.registry as registry
 from .parser import parse
-from .name_resolver import registry, get_socket, get_name_from_address, get_address
 from .exceptions import CommandRecieved
 
 server_logger = logging.getLogger(__name__)
-logging.basicConfig(filename = "./logs/shimmer_server.log",
-                    level=logging.DEBUG,
-                    filemode="w")
+logging.basicConfig(
+    filename="./logs/shimmer_server.log", level=logging.DEBUG, filemode="w"
+)
 
 # uncomment to enable the debug messages to be printed to the console as well as the file
-#handler = logging.StreamHandler(sys.stdout)
-#handler.setLevel(logging.DEBUG)
-#server_logger.addHandler(handler)
+# handler = logging.StreamHandler(sys.stdout)
+# handler.setLevel(logging.DEBUG)
+# server_logger.addHandler(handler)
+
 
 class Message:
     def __init__(self, selector, sock, addr):
@@ -31,9 +32,13 @@ class Message:
         self.jsonheader = None
         self.request = None
         self.response_created = False
-        self.disconnect = False  # sentinel for whether to disconnect this socket or not.
-        
-        self.is_relayed_message = False  # is this the message created by the server to pass on?
+        self.disconnect = (
+            False  # sentinel for whether to disconnect this socket or not.
+        )
+
+        self.is_relayed_message = (
+            False  # is this the message created by the server to pass on?
+        )
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -71,7 +76,7 @@ class Message:
         self._jsonheader_len = None
         self.jsonheader = None
         self.request = None
-        self.response_created = False 
+        self.response_created = False
 
         # after we send something, we should be ready to listen again.
         # this appears twice because during relayi
@@ -91,7 +96,9 @@ class Message:
             try:
                 # Should be ready to write
                 if self.is_relayed_message:
-                    server_logger.info(f"Sending {self._send_buffer!r} to {self.to_address}")
+                    server_logger.info(
+                        f"Sending {self._send_buffer!r} to {self.to_address}"
+                    )
                     sent = self.to_socket.send(self._send_buffer)
                 else:
                     server_logger.info(f"Sending {self._send_buffer!r} to {self.addr}")
@@ -110,16 +117,13 @@ class Message:
                         self.close()
                         raise ClientDisconnect(self.addr)
 
-
     def _json_encode(self, obj, encoding):
         """Encode json data into bytes (to send down the wire)."""
         return json.dumps(obj, ensure_ascii=False).encode(encoding)
 
     def _json_decode(self, json_bytes, encoding):
         """Decode bytes (from the wire) into json data."""
-        tiow = io.TextIOWrapper(
-            io.BytesIO(json_bytes), encoding=encoding, newline=""
-        )
+        tiow = io.TextIOWrapper(io.BytesIO(json_bytes), encoding=encoding, newline="")
         obj = json.load(tiow)
         tiow.close()
         return obj
@@ -150,7 +154,7 @@ class Message:
             command = self.request.get("value")
             command_tokens = parse(command)
             content = {"result": f"Command {command_tokens[0]} recieved by server."}
-            
+
             # generate the response message if we are disconnected
             if self.disconnect:
                 server_logger.debug("creating disconnect response")
@@ -173,8 +177,7 @@ class Message:
     def _create_response_binary_content(self):
         """Generate a binary response that we'll send back to the client."""
         response = {
-            "content_bytes": b"First 10 bytes of request: "
-            + self.request[:10],
+            "content_bytes": b"First 10 bytes of request: " + self.request[:10],
             "content_type": "binary/custom-server-binary-type",
             "content_encoding": "binary",
         }
@@ -224,11 +227,8 @@ class Message:
             server_logger.debug("unregistering socket.")
             self.selector.unregister(self.sock)
         except Exception as e:
-            print(
-                f"Error: selector.unregister() exception for "
-                f"{self.addr}: {e!r}"
-            )
-        
+            print(f"Error: selector.unregister() exception for " f"{self.addr}: {e!r}")
+
         try:
             self.sock.close()
         except OSError as e:
@@ -241,19 +241,19 @@ class Message:
         """Process the protoheader to find out the length of the json header."""
         hdrlen = 2
         if len(self._recv_buffer) >= hdrlen:  # enough data has been sent in.
-            self._jsonheader_len = struct.unpack(
-                ">H", self._recv_buffer[:hdrlen]
-            )[0]
-            self._recv_buffer = self._recv_buffer[hdrlen:]  # remove the protoheader from the buffer. we don't want to read it again.
+            self._jsonheader_len = struct.unpack(">H", self._recv_buffer[:hdrlen])[0]
+            self._recv_buffer = self._recv_buffer[
+                hdrlen:
+            ]  # remove the protoheader from the buffer. we don't want to read it again.
 
     def process_jsonheader(self):
         """Process the jsonheader to find out information about the content."""
         hdrlen = self._jsonheader_len
         if len(self._recv_buffer) >= hdrlen:  # enough data has been sent in.
-            self.jsonheader = self._json_decode(
-                self._recv_buffer[:hdrlen], "utf-8"
-            )
-            self._recv_buffer = self._recv_buffer[hdrlen:]  # remove from buffer so we don't read it again.
+            self.jsonheader = self._json_decode(self._recv_buffer[:hdrlen], "utf-8")
+            self._recv_buffer = self._recv_buffer[
+                hdrlen:
+            ]  # remove from buffer so we don't read it again.
             for reqhdr in (
                 "byteorder",
                 "content-length",
@@ -265,10 +265,10 @@ class Message:
 
             if self.jsonheader["content-type"] == "relay":
                 to = self.jsonheader["to"]
-                self.to_socket = get_socket(to)
-                self.to_address = get_address(to)
+                self.to_socket = registry.get_socket(to)
+                self.to_address = registry.get_address(to)
 
-                self.is_relayed_message = True              
+                self.is_relayed_message = True
 
     def process_request(self):
         """Process the actual content of the message."""
@@ -276,12 +276,14 @@ class Message:
 
         content_len = self.jsonheader["content-length"]
 
-        if not len(self._recv_buffer) >= content_len:  # we haven't recieved the whole message
+        if (
+            not len(self._recv_buffer) >= content_len
+        ):  # we haven't recieved the whole message
             return  # read will keep being called until we get past here.
 
         data = self._recv_buffer[:content_len]
         self._recv_buffer = self._recv_buffer[content_len:]  # clear the read buffer.
-        
+
         # if a decodeable content type, decode it
         if self.jsonheader["content-type"] in ("text/json", "command", "relay"):
             encoding = self.jsonheader["content-encoding"]
@@ -291,23 +293,29 @@ class Message:
             server_logger.info(f"Received request {self.request!r} from {self.addr}")
         elif self.jsonheader["content-type"] == "command":
             server_logger.debug("Command packet recieved.")
-           
+
             command = self.request["value"]
 
             if not command[0] == "!":  # server commands don't start with !
-                #print("server command recieved")
-                self._set_selector_events_mask("w")  # set here because we never reach bottom of this function.
+                # print("server command recieved")
+                self._set_selector_events_mask(
+                    "w"
+                )  # set here because we never reach bottom of this function.
                 # HACK: there has got to be a more pythonic way than raising an exception.
-                raise CommandRecieved(self.request.get("value"))  # escapes us to main loop and takes the rest of the command with it.
-            
+                raise CommandRecieved(
+                    self.request.get("value")
+                )  # escapes us to main loop and takes the rest of the command with it.
+
             command_tokens = parse(command)
 
             if command_tokens[0] == "!disconnect":
-                self.disconnect = True 
+                self.disconnect = True
 
         elif self.jsonheader["content-type"] == "relay":
             # we don't need to do anything to the message content, just pass it on
-            server_logger.info(f"Relaying message from {self.jsonheader['from']} to {self.jsonheader['to']}.")
+            server_logger.info(
+                f"Relaying message from {self.jsonheader['from']} to {self.jsonheader['to']}."
+            )
         else:
             # Binary or unknown content-type
             self.request = data

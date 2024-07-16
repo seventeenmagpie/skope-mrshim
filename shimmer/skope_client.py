@@ -89,19 +89,6 @@ try:
                 )
                 message.close()
 
-        if not events:  # once we have processed all events, then we get a new command in.
-            command_string = input("[shimmer]: ")
-            action = "command"
-            value = command_string
-    
-            request = create_request(action, value)
-            client_logger.info(f"Created request is: {request}")
-            send_request(sock, addr, request)
-            # TODO: after lunch i bet somewhere in process_events the message is removed 
-            # from the selector, so any commands after the first aren't actually sent...
-            # TODO: after lunch: play around with selectors so you understand that ples.
-            # some debugging suggests the issue is on the server side, not recieving any command after the first.
-
         # Check for a socket being monitored to continue.
         if value == "disconnect":
             break

@@ -6,6 +6,7 @@ import sys
 import logging
 
 from libraries.parser import parse
+from libraries.name_resolver import get_name_from_address
 
 client_logger = logging.getLogger(__name__)
 logging.basicConfig(filename = "./logs/shimmer_clients.log",
@@ -14,7 +15,7 @@ logging.basicConfig(filename = "./logs/shimmer_clients.log",
 
 # uncomment to enable the logging messages to be printed to the console as well as log file
 #handler = logging.StreamHandler(sys.stdout)
-#handler.setLevel(logging.INFO)
+#handler.setLevel(logging.DEBUG)
 #client_logger.addHandler(handler)
 
 class ClientDisconnect(Exception):
@@ -32,7 +33,29 @@ class Message:
         self._jsonheader_len = None
         self.jsonheader = None
         self.response = None
+        self.is_relay = False
 
+    def _clear(self):
+        """Clear the buffers and sentinels ready to do the next thing."""
+        self.request = None
+        self._recv_buffer = b""
+        self._send_buffer = b""
+        self._request_queued = False
+        self._jsonheader_len = None
+        self.jsonheader = None
+        self.response = None
+
+        if self.is_relay:
+            self.is_relay = False
+            console_object = self.selector.get_key(0).data
+            # if relay, won't get a response, so we can recieve another command immediately
+            # rather than waiting until after the response (because command input is blocking)
+            # TODO: use curses to stop command input from being blocking.
+            self.selector.modify(0, selectors.EVENT_WRITE, data=console_object)
+
+        # console_client.py sets this back to write once a command is recieved. 
+        self._set_selector_events_mask("r")
+ 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
         if mode == "r":
@@ -91,7 +114,7 @@ class Message:
         return obj
 
     def _create_message(
-        self, *, content_bytes, content_type, content_encoding
+        self, optional_header=None, *, content_bytes, content_type, content_encoding
     ):
         """Create the bytes of message that are sent down the wire."""
         jsonheader = {
@@ -100,6 +123,10 @@ class Message:
             "content-encoding": content_encoding,
             "content-length": len(content_bytes),
         }
+
+        jsonheader.update(optional_header)
+        
+        client_logger.info(f"jsonheader is: {jsonheader}")
         jsonheader_bytes = self._json_encode(jsonheader, "utf-8")
         message_hdr = struct.pack(">H", len(jsonheader_bytes))
         message = message_hdr + jsonheader_bytes + content_bytes
@@ -154,8 +181,7 @@ class Message:
 
         if self._request_queued:  # if we have been sending a packet
             if not self._send_buffer:  # but we've sent all of it.
-                # Set selector to listen for read events, we're done writing.
-                self._set_selector_events_mask("r")
+                self._clear()
 
     def close(self):
         """Unregister from the selector and close the connection."""
@@ -181,6 +207,7 @@ class Message:
         content = self.request["content"]
         content_type = self.request["type"]
         content_encoding = self.request["encoding"]
+        optional_header_parts = {}
         if content_type == "text/json":
             req = {
                 "content_bytes": self._json_encode(content, content_encoding),
@@ -199,13 +226,26 @@ class Message:
                 # rather than send something
                 self._set_selector_events_mask("r")
                 return
+        elif content_type == "relay":
+            req = {
+                "content_bytes": self._json_encode(content["value"]["content"], content_encoding),
+                "content_type": content_type,
+                "content_encoding": content_encoding,
+            }
+
+            optional_header_parts = {
+                        "to": content["value"]["to"],
+                "from": content["value"]["from"]
+            }
+
+            self.is_relay = True
         else:
             req = {
                 "content_bytes": content,
                 "content_type": content_type,
                 "content_encoding": content_encoding,
             }
-        message = self._create_message(**req)
+        message = self._create_message(optional_header_parts, **req)
         self._send_buffer += message
         self._request_queued = True
 
@@ -260,6 +300,6 @@ class Message:
             )
             self._process_response_binary_content()
         
-        self._set_selector_events_mask("r")
+        self._clear()
         console_object = self.selector.get_key(0).data
         self.selector.modify(0, selectors.EVENT_WRITE, data=console_object)  # can recieve another command

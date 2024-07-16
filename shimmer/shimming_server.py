@@ -77,37 +77,6 @@ class ShimmingServer():
                 print(f" - id:{id} @ {client.addr[0]}:{client.addr[1]},")
         elif command_tokens[0] == "status":
             print(f"Server {'is' if self.running else 'is not'} running and shimming is {'enabled' if self.shimming else 'disabled'}.")
-        elif command_tokens[0] == "message":
-            try:
-                to = command_tokens[1]
-                content = command_tokens[2]
-                try:
-                    # create copy of current message
-                    # access to field of content
-                    # perform "dns-like" lookup to access the socket associated
-                    # change the socket and address of the copy to this.
-                    # add it to the register in write mode
-                    # add a tag to this message so it knows it's a message sent
-                    # because it should be closed after it was sent
-                    # (so it needs to self destruct)
-                    self.duplicate_message = copy.copy(self.current_message)
-                    
-                    new_sock = get_socket(to)
-                    new_addr = get_address(to)
-
-                    self.duplicate_message.from_socket = self.duplicate_message.sock
-                    self.duplicate_message.from_address = self.duplicate_message.addr
-
-                    self.duplicate_message.sock = new_sock
-                    self.duplicate_message.addr = new_addr
-
-                    self.duplicate_message.is_relayed_message = True
-                    
-                    self.duplicate_message.selector.modify(new_sock, selectors.EVENT_WRITE, data=self.duplicate_message)
-                except KeyError:
-                    print("That's not a current client.")      
-            except IndexError:
-                print("Usage: message <to> \"<message content>\"")
 
 
     def accept_wrapper(self, sock):
@@ -156,7 +125,7 @@ class ShimmingServer():
                     self.current_message.process_events(mask)
                 # during processing, one of the folliwng special exceptions may arise.
                 except CommandRecieved as command_string:
-                    # print(f"doing command {command_string}")
+                    #print(f"doing command {command_string}")
                     self.handle_command_string(str(command_string))  # str() because exceptions object is not a string.
                 except ClientDisconnect as disconnect_addr:
                     # remove from internal list of clients

@@ -75,3 +75,5 @@ dkms.conf
 real_python_network_examples/
 **/__pycache__/
 **/logs/
+/.vs
+/sinope_mimic/.vs

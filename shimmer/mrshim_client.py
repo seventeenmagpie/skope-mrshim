@@ -11,6 +11,9 @@ from libraries.generic_client import Client
 from libraries.client_packets import Message
 from libraries.printers import selector_printer
 
+JUPITER_PLUGGED_IN = False
+if JUPITER_PLUGGED_IN:
+    import libraries.hwio as mrshim
 
 class SinopeClient(Client):
     """A class for Sinope. Handles !shim commands and writes shim currents to the file."""
@@ -31,6 +34,13 @@ class SinopeClient(Client):
         # w mode clears the old shims
         self.shimming_file = open("shims.txt", "w", encoding="utf-8")
 
+        if JUPITER_PLUGGED_IN:
+            mrshim.LinkupHardware(device_name,
+                                  1  # safe mode (ramps currents),
+                                  None)
+            mrshim.LoadShimSets("shims.txt")
+            mrshim.ApplyShimManually("reset")
+
     def write_shims_to_file(self):
         print(f"Writing shims {self.currents} to file.")
         # puts the currents in the way sinope likes them.
@@ -39,11 +49,14 @@ class SinopeClient(Client):
         self.shimming_file.write(formatted_currents)
         self.shimming_file.flush()
         self._set_selector_mode("r")  # wait for update before doing this again.
-        self.send_shims_to_jupiter()
+        if JUPITER_PLUGGED_IN:
+            self.send_shims_to_jupiter()
+        else:
+            print("Jupiter not plugged in. Not attempting to drive shims.")
 
     def send_shims_to_jupiter(self):
-        print("Driving Jupiter with new shimset.")
-        pass
+        mrshim.ApplyShimManually("next")
+        
 
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
@@ -119,6 +132,8 @@ class SinopeClient(Client):
             )
 
     def close(self):
+        if JUPITER_PLUGGED_IN:
+            mrshim.CloseHardwareLink()
         self.shimming_file.close()
         super().close()
 
@@ -143,7 +158,8 @@ try:
     while True:
         sinope.main_loop()
 except KeyboardInterrupt:
-    sinope.close()
+    print("Detected keyboard interrupt. Closing program.")
 finally:
+    sinope.close()
     sel.close()
     sys.exit(0)

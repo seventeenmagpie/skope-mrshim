@@ -155,7 +155,7 @@ name = "sinope"
 
 # create and register the command prompt.
 sinope = SinopeClient(sel, name)
-sinope.selector.register(0, selectors.EVENT_WRITE, data=sinope)
+sinope.selector.register(sinope.descriptor_socket, selectors.EVENT_WRITE, data=sinope)
 
 debugging = False
 try:

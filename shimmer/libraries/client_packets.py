@@ -37,9 +37,9 @@ class Message:
 
         if self.is_relay:
             self.is_relay = False
-            console_object = self.selector.get_key(0).data
+            console_object = self.selector.get_key(self.client.descriptor_socket).data
             # if relay, won't get a response, so we can recieve another command immediately
-            self.selector.modify(0, selectors.EVENT_WRITE, data=console_object)
+            self.selector.modify(self.client.descriptor_socket, selectors.EVENT_WRITE, data=console_object)
 
         # NOTE: *_client.py sets this back to write once a command is recieved.
         self._set_selector_events_mask("r")
@@ -304,7 +304,7 @@ class Message:
             self._process_response_binary_content()
 
         self._clear()
-        client_object = self.selector.get_key(0).data
+        client_object = self.selector.get_key(self.client.descriptor_socket).data
         self.selector.modify(
-            0, selectors.EVENT_WRITE, data=client_object
+            self.client.descriptor_socket, selectors.EVENT_WRITE, data=client_object
         )  # can recieve another request from client

@@ -35,8 +35,9 @@ class SinopeClient(Client):
         self.shimming_file = open("shims.txt", "w", encoding="utf-8")
 
         if JUPITER_PLUGGED_IN:
+            device_name = ""
             mrshim.LinkupHardware(device_name,
-                                  1  # safe mode (ramps currents),
+                                  1,  # safe mode (ramps currents),
                                   None)
             mrshim.LoadShimSets("shims.txt")
             mrshim.ApplyShimManually("reset")
@@ -49,6 +50,7 @@ class SinopeClient(Client):
         self.shimming_file.write(formatted_currents)
         self.shimming_file.flush()
         self._set_selector_mode("r")  # wait for update before doing this again.
+        
         if JUPITER_PLUGGED_IN:
             self.send_shims_to_jupiter()
         else:
@@ -95,11 +97,13 @@ class SinopeClient(Client):
             )
 
     def main_loop(self):
+        print("trying to select")
         events = self.selector.select(
             timeout=0
         )  # get waiting io events. timeout = 0 to wait without blocking.
         # TODO: fasten to global debugging flag
-        #selector_printer(self.selector, events)
+        print("selected")
+        selector_printer(self.selector, events)
 
         for key, mask in events:
             message = key.data

@@ -97,12 +97,10 @@ class SinopeClient(Client):
             )
 
     def main_loop(self):
-        print("trying to select")
         events = self.selector.select(
             timeout=0
         )  # get waiting io events. timeout = 0 to wait without blocking.
         # TODO: fasten to global debugging flag
-        print("selected")
         selector_printer(self.selector, events)
 
         for key, mask in events:

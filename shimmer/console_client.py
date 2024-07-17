@@ -137,7 +137,7 @@ name = "console" + str(console_number)
 
 # create and register the command prompt.
 prompt = CommandPrompt(sel, name)
-prompt.selector.register(0, selectors.EVENT_WRITE, data=prompt)
+prompt.selector.register(prompt.descriptor_socket, selectors.EVENT_WRITE, data=prompt)
 
 debugging = False
 

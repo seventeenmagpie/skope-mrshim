@@ -36,7 +36,7 @@ class SinopeClient(Client):
 
         if JUPITER_PLUGGED_IN:
             mrshim.LinkupHardware(device_name,
-                                  1  # safe mode (ramps currents),
+                                  1,  # safe mode (ramps currents),
                                   None)
             mrshim.LoadShimSets("shims.txt")
             mrshim.ApplyShimManually("reset")
@@ -151,7 +151,7 @@ name = "sinope"
 
 # create and register the command prompt.
 sinope = SinopeClient(sel, name)
-sinope.selector.register(0, selectors.EVENT_WRITE, data=sinope)
+sinope.selector.register(sinope.descriptor_socket, selectors.EVENT_WRITE, data=sinope)
 
 debugging = False
 try:

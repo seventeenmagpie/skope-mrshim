@@ -17,6 +17,7 @@ class Client:
         self.my_address = get_address(name)
         self.server_address = get_address("server")
         self.addr = self.my_address  # for the selector printer
+        self.descriptor_socket = socket.socket()
 
         # set up the logger
         self.logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class Client:
         else:
             raise ValueError(f"Invalid events mask mode {mode!r}.")
         # zero is the selector corresponding to this client object
-        self.selector.modify(0, events, data=self)
+        self.selector.modify(self.descriptor_socket, events, data=self)
 
     def start_connection(self):
         """Try and make a connection to the server, add this socket to the selector."""

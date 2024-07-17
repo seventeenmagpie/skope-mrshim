@@ -41,7 +41,7 @@ class Message:
             # if relay, won't get a response, so we can recieve another command immediately
             self.selector.modify(0, selectors.EVENT_WRITE, data=console_object)
 
-        # NOTE: console_client.py sets this back to write once a command is recieved.
+        # NOTE: *_client.py sets this back to write once a command is recieved.
         self._set_selector_events_mask("r")
 
     def _set_selector_events_mask(self, mode):
@@ -304,7 +304,7 @@ class Message:
             self._process_response_binary_content()
 
         self._clear()
-        console_object = self.selector.get_key(0).data
+        client_object = self.selector.get_key(0).data
         self.selector.modify(
-            0, selectors.EVENT_WRITE, data=console_object
-        )  # can recieve another command
+            0, selectors.EVENT_WRITE, data=client_object
+        )  # can recieve another request from client

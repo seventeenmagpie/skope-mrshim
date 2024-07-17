@@ -15,10 +15,12 @@ logging.basicConfig(
     filename="./logs/shimmer_server.log", level=logging.DEBUG, filemode="w"
 )
 
-# uncomment to enable the debug messages to be printed to the console as well as the file
-# handler = logging.StreamHandler(sys.stdout)
-# handler.setLevel(logging.DEBUG)
-# server_logger.addHandler(handler)
+debugging=False
+
+if debugging:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    server_logger.addHandler(handler)
 
 
 class Message:

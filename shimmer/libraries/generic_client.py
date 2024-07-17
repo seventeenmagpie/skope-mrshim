@@ -5,6 +5,8 @@ import sys
 from libraries.registry import registry, get_address
 from libraries.client_packets import Message
 
+# TODO: load debugging settings per client from a config file.
+debugging = False
 
 class Client:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
@@ -25,9 +27,10 @@ class Client:
         )
 
         # uncomment to enable the logging messages to be printed to the console as well as log file
-        # handler = logging.StreamHandler(sys.stdout)
-        # handler.setLevel(logging.DEBUG)
-        # self.logger.addHandler(handler)
+        if debugging:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setLevel(logging.DEBUG)
+            self.logger.addHandler(handler)
 
     def _set_selector_mode(self, mode):
         """Set whether this client's selector entry should select for read/write or both."""
@@ -39,6 +42,7 @@ class Client:
             events = selectors.EVENT_READ | selectors.EVENT_WRITE
         else:
             raise ValueError(f"Invalid events mask mode {mode!r}.")
+        # zero is the selector corresponding to this client object
         self.selector.modify(0, events, data=self)
 
     def start_connection(self):
@@ -52,7 +56,7 @@ class Client:
         self.socket.connect_ex(self.server_address)
 
         events = selectors.EVENT_READ
-        # add yourself to the register if successful.
+        # add this socket to the register if successful.
         self.selector.register(self.socket, events, data=None)
         # print(self.selector.get_key(self.socket))
         self.logger.debug(f"Added {self.socket} to selector.")

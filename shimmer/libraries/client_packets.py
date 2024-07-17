@@ -5,26 +5,18 @@ import struct
 import sys
 import logging
 
-from libraries.exceptions import ClientDisconnect
+from libraries.exceptions import ClientDisconnect, CommandRecieved
 from libraries.parser import parse
-
-client_logger = logging.getLogger(__name__)
-logging.basicConfig(
-    filename="./logs/shimmer_clients.log", level=logging.DEBUG, filemode="w"
-)
-
-# uncomment to enable the logging messages to be printed to the console as well as log file
-# handler = logging.StreamHandler(sys.stdout)
-# handler.setLevel(logging.DEBUG)
-# client_logger.addHandler(handler)
 
 
 class Message:
-    def __init__(self, selector, sock, addr, request):
+    def __init__(self, selector, sock, addr, request, client):
         self.selector = selector
         self.sock = sock
         self.addr = addr
         self.request = request
+        self.client = client
+
         self._recv_buffer = b""
         self._send_buffer = b""
         self._request_queued = False
@@ -47,11 +39,9 @@ class Message:
             self.is_relay = False
             console_object = self.selector.get_key(0).data
             # if relay, won't get a response, so we can recieve another command immediately
-            # rather than waiting until after the response (because command input is blocking)
-            # TODO: use curses to stop command input from being blocking.
             self.selector.modify(0, selectors.EVENT_WRITE, data=console_object)
 
-        # console_client.py sets this back to write once a command is recieved.
+        # NOTE: console_client.py sets this back to write once a command is recieved.
         self._set_selector_events_mask("r")
 
     def _set_selector_events_mask(self, mode):
@@ -70,7 +60,7 @@ class Message:
         """Read from the socket and add to the read buffer.
 
         Called repeatedly by .read()"""
-        client_logger.debug("_read")
+        self.client.logger.debug("_read")
         try:
             # Should be ready to read
             data = self.sock.recv(4096)
@@ -88,7 +78,7 @@ class Message:
 
         Called repeatedly by .write()"""
         if self._send_buffer:
-            client_logger.info(f"Sending {self._send_buffer!r} to {self.addr}")
+            self.client.logger.info(f"Sending {self._send_buffer!r} to {self.addr}")
             try:
                 # Should be ready to write
                 sent = self.sock.send(self._send_buffer)
@@ -122,7 +112,7 @@ class Message:
 
         jsonheader.update(optional_header)
 
-        client_logger.info(f"jsonheader is: {jsonheader}")
+        self.client.logger.info(f"jsonheader is: {jsonheader}")
         jsonheader_bytes = self._json_encode(jsonheader, "utf-8")
         message_hdr = struct.pack(">H", len(jsonheader_bytes))
         message = message_hdr + jsonheader_bytes + content_bytes
@@ -132,25 +122,25 @@ class Message:
         """Process a json response."""
         content = self.response
         result = content.get("result")
-        client_logger.info(f"Got result: {result}")
+        self.client.logger.info(f"Got result: {result}")
         print(result)
 
         if result == "disconnect":  # special case for the disconnect command.
-            client_logger.debug("raising client disconnect")
+            self.client.logger.debug("raising client disconnect")
             raise ClientDisconnect
 
     def _process_response_binary_content(self):
         """Process a binary response."""
         content = self.response
-        client_logger.info(f"Got response: {content!r}")
+        self.client.logger.info(f"Got response: {content!r}")
 
     def process_events(self, mask):
         """Use selector state to start read or write."""
         if mask & selectors.EVENT_READ:
-            client_logger.debug("client is reading")
+            self.client.logger.debug("client is reading")
             self.read()
         if mask & selectors.EVENT_WRITE:
-            client_logger.debug("client is writing")
+            self.client.logger.debug("client is writing")
             self.write()
 
     def read(self):
@@ -209,12 +199,19 @@ class Message:
             }
         elif content_type == "command":
             req = {
-                "content_bytes": self._json_encode(content, content_encoding),
+                "content_bytes": self._json_encode(
+                    content["content"], content_encoding
+                ),
                 "content_type": content_type,
                 "content_encoding": content_encoding,
             }
 
-            if content["value"] == "!reader":
+            optional_header_parts = {
+                "to": content["to"],
+                "from": content["from"],
+            }
+
+            if content["content"] == "!reader":
                 # if reader is called we need to read from the socket
                 # rather than send something
                 self._set_selector_events_mask("r")
@@ -222,15 +219,15 @@ class Message:
         elif content_type == "relay":
             req = {
                 "content_bytes": self._json_encode(
-                    content["value"]["content"], content_encoding
+                    content["content"], content_encoding
                 ),
                 "content_type": content_type,
                 "content_encoding": content_encoding,
             }
 
             optional_header_parts = {
-                "to": content["value"]["to"],
-                "from": content["value"]["from"],
+                "to": content["to"],
+                "from": content["from"],
             }
 
             self.is_relay = True
@@ -279,15 +276,28 @@ class Message:
         data = self._recv_buffer[:content_len]
         self._recv_buffer = self._recv_buffer[content_len:]  # remove from buffer
 
-        if self.jsonheader["content-type"] == "text/json":
+        if self.jsonheader["content-type"] in ("command", "text/json", "relay"):
             encoding = self.jsonheader["content-encoding"]
             self.response = self._json_decode(data, encoding)
-            client_logger.info(f"Received response {self.response!r} from {self.addr}")
+            self.client.logger.debug(f"Decoded response from server is {self.response}")
+
+        if self.jsonheader["content-type"] == "relay":
+            # a relay command is a command sent from another client.
+            if self.response["result"][0] == "!":  # client commands start with a bang!
+                self.client.handle_command(self.response["result"][1:])
+            else:
+                self._process_response_json_content()
+        elif self.jsonheader["content-type"] == "command":
+            self._process_response_json_content()
+        elif self.jsonheader["content-type"] == "text/json":
+            self.client.logger.info(
+                f"Received response {self.response!r} from {self.addr}"
+            )
             self._process_response_json_content()
         else:
             # Binary or unknown content-type
             self.response = data
-            client_logger.info(
+            self.client.logger.info(
                 f"Received {self.jsonheader['content-type']} "
                 f"response from {self.addr}"
             )

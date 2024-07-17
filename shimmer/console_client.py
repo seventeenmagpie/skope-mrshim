@@ -5,8 +5,9 @@ import sys
 import traceback
 
 from libraries.exceptions import ClientDisconnect
-from libraries.parser import parse
+import libraries.parser as parser
 from libraries.generic_client import Client
+from libraries.printers import selector_printer
 
 
 class CommandPrompt(Client):
@@ -16,7 +17,6 @@ class CommandPrompt(Client):
         super().__init__(selector, name)
         self.start_connection()
 
-    
     def send_command(self):
         """Input a command string from the user, turn it into a request and send it to the server."""
 
@@ -26,9 +26,9 @@ class CommandPrompt(Client):
             print("Please enter a command!")
             return
 
-        command_tokens = parse(command_string)
+        command_tokens = parser.parse(command_string)
 
-        if command_tokens[0] == "message":
+        if command_tokens[0] == "relay":
             action = "relay"
             try:
                 self.logger.debug(f"attempting to create request.")
@@ -43,13 +43,12 @@ class CommandPrompt(Client):
                 )
                 self.logger.debug(f"request is {request}")
             except IndexError:
-                print('Usage: message <to name> "<message content>"')
+                print('Usage: relay <to name> "<content>"')
                 return
         else:
             action = "command"
-            value = command_string
+            value = {"to": "server", "from": self.name, "content": command_string}
             request = self.create_request(action, value)
-
         self.send_request(request)
         # once a command is sent, we shouldn't send another until the response is back
         # NOTE: the response packet will set this back to w.
@@ -72,17 +71,16 @@ class CommandPrompt(Client):
         self.logger.debug(f"action is {action}, value is {value}")
         if action == "relay":
             self.logger.debug("detected in relay section")
-            # here, value is a dictionary of to: and content:
             return dict(
                 type="relay",
                 encoding="utf-8",
-                content=dict(action=action, value=value),
+                content=value,
             )
         elif action == "command":
             return dict(
                 type="command",
                 encoding="utf-8",
-                content=dict(action=action, value=value),
+                content=value,
             )
         else:
             return dict(
@@ -91,6 +89,38 @@ class CommandPrompt(Client):
                 content=bytes(action + value, encoding="utf-8"),
             )
 
+    def main_loop(self):
+        events = self.selector.select(
+            timeout=0
+        )  # get waiting io events. timeout = 0 to wait without blocking.
+
+        # selector_printer(prompt.selector, events)
+
+        for key, mask in events:
+            message = key.data
+            try:
+                message.process_events(mask)
+            except ClientDisconnect:
+                print("Disconnected from server.")
+                message.close()
+                raise KeyboardInterrupt  # to exit the rest of the program.
+            except Exception:
+                print(
+                    f"Main: Error: Exception for {message.addr}:\n"
+                    f"{traceback.format_exc()}"
+                )
+                message.close()
+
+    def handle_command(self, command_string):
+        command_tokens = parser.parse(command_string)
+        self.logger.debug(f"Recieved command tokens are {command_tokens}")
+        try:
+            if command_tokens[0] == "echo":
+                print(f"{' '.join(command_tokens[1:])}")
+        except IndexError:
+            print(
+                f"Incorrect number of arguments for command {command_tokens[0]}. Look up correct usage in manual."
+            )
 
 
 # check correct arguments (none)
@@ -113,44 +143,7 @@ debugging = False
 
 try:
     while True:
-        #print("everything in the selector is")
-        #for fileobj, key in prompt.selector.get_map().items():
-            #print(f"{fileobj}: {key}")
-        events = prompt.selector.select(
-            timeout=0
-        )  # get waiting io events. timeout = 0 to wait without blocking.
-        # sort by mask so list now in order read -> write -> read/write
-        # NOTE: was included to try and help auto-inbox
-        # but command prompt input() is always blocking.
-        # auto-inbox no work.
-        #print(events)
-        # TODO: to fix input blocking would need to create a true console gui with something like curses. not now.
-        events_sorted_read_priority = sorted(
-            events, key=lambda key_mask_pair: key_mask_pair[1]
-        )
-
-        if False:
-            # print("Selector contents:")
-            for key, mask in events_sorted_read_priority:
-                if key.data is not None:
-                    print(f" - Port: {key.data.addr[1]} is in mode {mask},")
-
-        for key, mask in events_sorted_read_priority:
-            message = key.data
-            try:
-                message.process_events(mask)
-            except ClientDisconnect:
-                print("Disconnected from server.")
-                message.close()
-                raise KeyboardInterrupt  # to exit the rest of the program.
-            except Exception:
-                print(
-                    f"Main: Error: Exception for {message.addr}:\n"
-                    f"{traceback.format_exc()}"
-                )
-                message.close()
-
-
+        prompt.main_loop()
 except KeyboardInterrupt:
     print("Exiting program! Take care :)")
 finally:

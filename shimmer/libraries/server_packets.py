@@ -22,10 +22,12 @@ logging.basicConfig(
 
 
 class Message:
-    def __init__(self, selector, sock, addr):
+    def __init__(self, selector, sock, addr, server):
         self.selector = selector
         self.sock = sock
         self.addr = addr
+        self.server = server
+
         self._recv_buffer = b""
         self._send_buffer = b""
         self._jsonheader_len = None
@@ -151,9 +153,10 @@ class Message:
     def _create_response_json_content(self):
         """Generate the json response that we'll send back to the client."""
         if self.jsonheader["content-type"] == "command":
-            command = self.request.get("value")
+            command = self.request
             command_tokens = parse(command)
             content = {"result": f"Command {command_tokens[0]} recieved by server."}
+            response_type = "command"
 
             # generate the response message if we are disconnected
             if self.disconnect:
@@ -162,13 +165,16 @@ class Message:
 
         elif self.jsonheader["content-type"] == "relay":
             content = {"result": self.request}
+            response_type = "relay"
         else:
-            content = {"result": f"Error: invalid action '{action}'."}
+            content = {
+                "result": f"Error: invalid type '{self.jsonheader['content-type']}'."
+            }
 
         content_encoding = "utf-8"
         response = {
             "content_bytes": self._json_encode(content, content_encoding),
-            "content_type": "text/json",
+            "content_type": response_type,
             "content_encoding": content_encoding,
         }
 
@@ -294,17 +300,15 @@ class Message:
         elif self.jsonheader["content-type"] == "command":
             server_logger.debug("Command packet recieved.")
 
-            command = self.request["value"]
+            command = self.request
+            print(f"Server got command {command}")
 
             if not command[0] == "!":  # server commands don't start with !
                 # print("server command recieved")
                 self._set_selector_events_mask(
                     "w"
                 )  # set here because we never reach bottom of this function.
-                # HACK: there has got to be a more pythonic way than raising an exception.
-                raise CommandRecieved(
-                    self.request.get("value")
-                )  # escapes us to main loop and takes the rest of the command with it.
+                self.server.handle_command(self.request)
 
             command_tokens = parse(command)
 
@@ -332,6 +336,10 @@ class Message:
         if self.jsonheader["content-type"] == "text/json":
             response = self._create_response_json_content()
         elif self.jsonheader["content-type"] == "command":
+            optional_header_parts = {
+                "to": self.jsonheader["to"],
+                "from": self.jsonheader["from"],
+            }
             response = self._create_response_json_content()
         elif self.jsonheader["content-type"] == "relay":
             optional_header_parts = {

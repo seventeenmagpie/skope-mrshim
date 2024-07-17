@@ -13,6 +13,7 @@ from libraries.exceptions import CommandRecieved, ClientDisconnect
 
 debugging = False
 
+
 class ModelClient:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
 
@@ -23,7 +24,8 @@ class ModelClient:
         self.name = name  # the role name for this client generic client object.
 
 
-# TODO: does this really need to be a class?
+# NOTE: does this really need to be a class?
+# yes, so we can pass it to the packet object to respond to commands.
 class ShimmingServer:
     """Coordinates packets between clients. Has internal state."""
 
@@ -60,7 +62,7 @@ class ShimmingServer:
         # adds this socket to the register is a read type io.
         self.sel.register(self.lsock, selectors.EVENT_READ, data=None)
 
-    def handle_command_string(self, command_string):
+    def handle_command(self, command_string):
         """Handle a the command part of a 'command' type packet."""
         command_tokens = parse(command_string)
         if command_tokens[0] == "halt":
@@ -87,7 +89,7 @@ class ShimmingServer:
         print(f"Accepted connection from {addr}")
         conn.setblocking(False)
         # create a message object to do the talking on.
-        message = Message(self.sel, conn, addr)
+        message = Message(self.sel, conn, addr, self)
 
         # work out which role the newly connected client is by comparing against the directory registry file.
         for role, address_dict in registry.registry.items():

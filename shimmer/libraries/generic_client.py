@@ -17,7 +17,7 @@ class Client:
         self.my_address = get_address(name)
         self.server_address = get_address("server")
         self.addr = self.my_address  # for the selector printer
-        self.descriptor_socket = socket.socket()
+        self.descriptor_socket = 0
 
         # set up the logger
         self.logger = logging.getLogger(__name__)

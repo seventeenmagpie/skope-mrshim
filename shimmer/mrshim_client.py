@@ -101,7 +101,7 @@ class SinopeClient(Client):
             timeout=0
         )  # get waiting io events. timeout = 0 to wait without blocking.
         # TODO: fasten to global debugging flag
-        selector_printer(self.selector, events)
+        #selector_printer(self.selector, events)
 
         for key, mask in events:
             message = key.data

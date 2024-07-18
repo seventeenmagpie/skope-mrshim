@@ -107,7 +107,6 @@ class ShimmingServer:
         # add the new message to the selector, we're ready to listen to it.
         self.sel.register(conn, selectors.EVENT_READ, data=message)
 
-
     def main_loop(self):
         """Choose the socket to send/recieve on and do that. Catch commands and disconnects."""
         events = self.sel.select(timeout=None)  # set of waiting io

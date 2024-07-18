@@ -15,7 +15,7 @@ logging.basicConfig(
     filename="./logs/shimmer_server.log", level=logging.DEBUG, filemode="w"
 )
 
-debugging=False
+debugging = False
 
 if debugging:
     handler = logging.StreamHandler(sys.stdout)

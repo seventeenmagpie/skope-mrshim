@@ -6,7 +6,8 @@ from libraries.registry import registry, get_address
 from libraries.client_packets import Message
 
 # TODO: load debugging settings per client from a config file.
-debugging = True
+debugging = False
+
 
 class Client:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
@@ -17,7 +18,7 @@ class Client:
         self.my_address = get_address(name)
         self.server_address = get_address("server")
         self.addr = self.my_address  # for the selector printer
-    
+
         # set up the logger
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(
@@ -43,7 +44,7 @@ class Client:
         else:
             raise ValueError(f"Invalid events mask mode {mode!r}.")
         # zero is the selector corresponding to this client object
-        #self.selector.modify(self.descriptor_socket, events, data=self)
+        # self.selector.modify(self.descriptor_socket, events, data=self)
 
     def start_connection(self):
         """Try and make a connection to the server, add this socket to the selector."""
@@ -59,10 +60,14 @@ class Client:
         # add this socket to the register if successful
         # with an empty request
         empty_request = dict(
-                type="command",
-                encoding="utf-8",
-            content={"to": "server", "from": self.name, "content": "echo \"confirming connection\"."},
-            )
+            type="command",
+            encoding="utf-8",
+            content={
+                "to": "server",
+                "from": self.name,
+                "content": 'echo "confirming connection".',
+            },
+        )
         empty_message = Message(
             self.selector, self.socket, self.server_address, empty_request, self
         )
@@ -83,9 +88,9 @@ class Client:
         print(f"Client {self.name} is handling command: {command_string}")
 
     def process_events(self, mask):
-        """Called by the clients packet object either before or after its own read/write methods. 
+        """Called by the clients packet object either before or after its own read/write methods.
 
-        The packet will call this with a read mask *after* its own read has been executed, because usually the client will want to do something with the data that has been read. 
+        The packet will call this with a read mask *after* its own read has been executed, because usually the client will want to do something with the data that has been read.
 
         The packet will call this with a write mask *before* its own write has been executed because usually the client will want to get something in for the packet to write.
 
@@ -95,10 +100,10 @@ class Client:
 
         But now I've explained it to myself I feel slightly different.
         """
-        #TODO: think more about this.
+        # TODO: think more about this.
 
         if mask & selectors.EVENT_READ:
-            print("Client is doing something after the packet read.")        
+            print("Client is doing something after the packet read.")
         if mask & selectors.EVENT_WRITE:
             print("Client is donig something before the packet wrote.")
 

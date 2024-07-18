@@ -104,20 +104,12 @@ class ShimmingServer:
         new_client = ModelClient(conn, addr, generated_id, name)
         registry.clients_on_registry[name] = new_client
 
-        # add the new client to the selector, we're ready to listen to it.
+        # add the new message to the selector, we're ready to listen to it.
         self.sel.register(conn, selectors.EVENT_READ, data=message)
 
     def main_loop(self):
         """Choose the socket to send/recieve on and do that. Catch commands and disconnects."""
         events = self.sel.select(timeout=None)  # set of waiting io
-
-        if debugging == True:
-            print("Selector contents:")
-            for key, mask in events:
-                if key.data is not None:
-                    print(
-                        f" - Port: {key.data.addr[1]} ({'' if key.data.is_relayed_message else 'not '}a message) is in mode {mask},"
-                    )
 
         for key, mask in events:  # iterate through waiting sockets.
             # key is a NamedTuple with the socket number and data=message. mask is the io type.
@@ -131,11 +123,6 @@ class ShimmingServer:
                 try:
                     self.current_message.process_events(mask)
                 # during processing, one of the folliwng special exceptions may arise.
-                except CommandRecieved as command_string:
-                    # print(f"doing command {command_string}")
-                    self.handle_command_string(
-                        str(command_string)
-                    )  # str() because exceptions object is not a string.
                 except ClientDisconnect as disconnect_addr:
                     # remove from internal list of clients
                     for name, client in registry.clients_on_registry.items():

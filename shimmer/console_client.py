@@ -52,15 +52,16 @@ class CommandPrompt(Client):
         self.send_request(request)
         # once a command is sent, we shouldn't send another until the response is back
         # NOTE: the response packet will set this back to w.
-        self._set_selector_mode("r")
+        # self._set_selector_mode("r")
 
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
         if mask & selectors.EVENT_READ:
             # the selector for the prompt is set back to write mode by the packet once its finished processing.
-            pass
+            return mask
         if mask & selectors.EVENT_WRITE:
             self.send_command()
+            return mask
 
     def create_request(self, action, value):
         """Make a requst from the users entry.
@@ -137,7 +138,7 @@ name = "console" + str(console_number)
 
 # create and register the command prompt.
 prompt = CommandPrompt(sel, name)
-prompt.selector.register(prompt.descriptor_socket, selectors.EVENT_WRITE, data=prompt)
+# prompt.selector.register(prompt.descriptor_socket, selectors.EVENT_WRITE, data=prompt)
 
 debugging = False
 
@@ -145,7 +146,8 @@ try:
     while True:
         prompt.main_loop()
 except KeyboardInterrupt:
-    print("Exiting program! Take care :)")
+    print("Exiting program!")
 finally:
+    prompt.close()
     sel.close()
     sys.exit(0)

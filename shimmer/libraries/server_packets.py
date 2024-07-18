@@ -15,7 +15,7 @@ logging.basicConfig(
     filename="./logs/shimmer_server.log", level=logging.DEBUG, filemode="w"
 )
 
-debugging=False
+debugging = False
 
 if debugging:
     handler = logging.StreamHandler(sys.stdout)
@@ -168,6 +168,9 @@ class Message:
         elif self.jsonheader["content-type"] == "relay":
             content = {"result": self.request}
             response_type = "relay"
+        elif self.jsonheader["content-type"] == "start":
+            content = {"result": "connection confirmed"}
+            response_type = "text/json"
         else:
             content = {
                 "result": f"Error: invalid type '{self.jsonheader['content-type']}'."

@@ -27,6 +27,7 @@ class Message:
 
     def _clear(self):
         """Clear the buffers and sentinels ready to do the next thing."""
+        self.client.logger.debug(f"_clear called. self.is_relay is {self.is_relay}")
         self.request = None
         self._recv_buffer = b""
         self._send_buffer = b""
@@ -37,12 +38,16 @@ class Message:
 
         if self.is_relay:
             self.is_relay = False
-            console_object = self.selector.get_key(self.client.descriptor_socket).data
+            # console_object = self.selector.get_key(self.client.descriptor_socket).data
             # if relay, won't get a response, so we can recieve another command immediately
-            self.selector.modify(self.client.descriptor_socket, selectors.EVENT_WRITE, data=console_object)
-
-        # NOTE: *_client.py sets this back to write once a command is recieved.
-        self._set_selector_events_mask("r")
+            # self.selector.modify(self.client.descriptor_socket, selectors.EVENT_WRITE, data=console_object)
+            self._set_selector_events_mask("w")
+        else:
+            # NOTE: *_client.py sets this back to write once a command is recieved.
+            self._set_selector_events_mask("r")
+        self.client.logger.debug(
+            f"After _clear, mask is {self.selector.get_key(self.sock).events}"
+        )
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -135,12 +140,23 @@ class Message:
         self.client.logger.info(f"Got response: {content!r}")
 
     def process_events(self, mask):
-        """Use selector state to start read or write."""
+        """Use selector state to start read or write.
+
+        Usual pattern is packet reads -> client does something with that data, or client gets some data -> packet writes it.
+        """
+
+        # if statements are repeated many times because clients may change these variables duing their own processing of events.
         if mask & selectors.EVENT_READ:
-            self.client.logger.debug("client is reading")
+            self.client.logger.debug("packet is reading")
             self.read()
+        if mask & selectors.EVENT_READ:
+            self.client.logger.debug("client is doing something after packet read")
+            mask = self.client.process_events(mask)
         if mask & selectors.EVENT_WRITE:
-            self.client.logger.debug("client is writing")
+            # self.client.logger.debug("client is doing something before packet write")
+            mask = self.client.process_events(mask)
+        if mask & selectors.EVENT_WRITE:
+            self.client.logger.debug("packet is writing")
             self.write()
 
     def read(self):
@@ -157,6 +173,7 @@ class Message:
         if self.jsonheader:
             if self.response is None:
                 self.process_response()
+                self._set_selector_events_mask("w")
 
     def write(self):
         """Write request if queued, generate it if not."""
@@ -304,7 +321,7 @@ class Message:
             self._process_response_binary_content()
 
         self._clear()
-        client_object = self.selector.get_key(self.client.descriptor_socket).data
-        self.selector.modify(
-            self.client.descriptor_socket, selectors.EVENT_WRITE, data=client_object
-        )  # can recieve another request from client
+        # client_object = self.selector.get_key(self.client.descriptor_socket).data
+        # self.selector.modify(
+        # self.client.descriptor_socket, selectors.EVENT_WRITE, data=client_object
+        # )  # can recieve another request from client

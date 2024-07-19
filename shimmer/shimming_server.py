@@ -93,11 +93,18 @@ class ShimmingServer:
 
         # work out which role the newly connected client is by comparing against the directory registry file.
         for role, address_dict in registry.registry.items():
+            # name_assigned = False
             if (addr[0] == address_dict["address"]) and (
                 addr[1] == address_dict["port"]
             ):
                 print(f"{role} just connected.")
                 name = role
+            #    name_assigned = True
+            # if not name_assigned:
+            #    # matlab won't let me connect with a static ip.
+            #    name = "matlab"
+            #    registry.registry["matlab"]["address"] = addr[0]
+            #    registry.registry["matlab"]["port"] = addr[1]
 
         # create a GenericClient object for keeping track of who is connected.
         generated_id = self._generate_id()

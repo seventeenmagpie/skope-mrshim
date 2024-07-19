@@ -1,13 +1,12 @@
-import tomli
+import configparser
 
 clients_on_registry = {}
+registry = configparser.ConfigParser()
+registry.read("network_description.ini")
+# print(registry.sections())
 
-try:
-    with open("network_description.toml", "rb") as f:
-        registry = tomli.load(f)
-except tomli.TOMLDecodeError:
-    print("Invalid config file.")
-    sys.exit(1)
+# for name in registry.sections():
+#    print(f"{name} @ {registry[name]['address']}:{registry[name]['port']},")
 
 
 def get_socket(name: str):
@@ -15,7 +14,7 @@ def get_socket(name: str):
 
 
 def get_address(name: str):
-    return (registry[name]["address"], registry[name]["port"])
+    return (registry[name]["address"], int(registry[name]["port"]))
 
 
 def get_name_from_address(query_address):

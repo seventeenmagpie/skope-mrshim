@@ -90,26 +90,30 @@ class ShimmingServer:
         conn.setblocking(False)
         # create a message object to do the talking on.
         message = Message(self.sel, conn, addr, self)
+        name_assigned = False
 
         # work out which role the newly connected client is by comparing against the directory registry file.
-        for role, address_dict in registry.registry.items():
-            # name_assigned = False
-            if (addr[0] == address_dict["address"]) and (
-                addr[1] == address_dict["port"]
-            ):
-                print(f"{role} just connected.")
-                name = role
-            #    name_assigned = True
-            # if not name_assigned:
-            #    # matlab won't let me connect with a static ip.
-            #    name = "matlab"
-            #    registry.registry["matlab"]["address"] = addr[0]
-            #    registry.registry["matlab"]["port"] = addr[1]
+        for role in registry.registry.sections():
+            reg_address = registry.get_address(role)
+            name_assigned = False
 
+            if (addr[0] == reg_address[0]) and (addr[1] == reg_address[1]): 
+                name_assigned = True
+                break  # role = the current role
+
+        if not name_assigned:
+            # matlab won't let me connect with a static ip,
+            # so we need to rewrite the config file to match the actual ip
+            # NOTE: may change when matlab implementation done with python.
+            role = "matlab"
+            registry.registry["matlab"]["address"] = addr[0]
+            registry.registry["matlab"]["port"] = str(addr[1])
+
+        print(f"{role} just connected.")
         # create a GenericClient object for keeping track of who is connected.
         generated_id = self._generate_id()
-        new_client = ModelClient(conn, addr, generated_id, name)
-        registry.clients_on_registry[name] = new_client
+        new_client = ModelClient(conn, addr, generated_id, role)
+        registry.clients_on_registry[role] = new_client
 
         # add the new message to the selector, we're ready to listen to it.
         self.sel.register(conn, selectors.EVENT_READ, data=message)

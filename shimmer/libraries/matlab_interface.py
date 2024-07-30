@@ -11,8 +11,7 @@ class MatlabClient(Client):
 
     def __init__(self, name):
         name = 'matlab'
-        sel = selectors.DefaultSelector()
-        super().__init__(sel, name)
+        super().__init__(name)
     
     def send_currents(self, current):
         """Called by matlab. Sends a current."""

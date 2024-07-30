@@ -13,8 +13,8 @@ from libraries.printers import selector_printer
 class CommandPrompt(Client):
     """A class to be the command prompt so that we can put it on the selector and select into at the correct times."""
 
-    def __init__(self, selector, name):
-        super().__init__(selector, name)
+    def __init__(self, name):
+        super().__init__(name)
         self.start_connection()
 
     def send_command(self):
@@ -126,14 +126,11 @@ if len(sys.argv) != 1:
     sys.exit(1)
 
 
-# create the selector
-sel = selectors.DefaultSelector()
-
 console_number = int(input("Enter console number (1 or 2): "))
 name = "console" + str(console_number)
 
 # create and register the command prompt.
-prompt = CommandPrompt(sel, name)
+prompt = CommandPrompt(name)
 # prompt.selector.register(prompt.descriptor_socket, selectors.EVENT_WRITE, data=prompt)
 
 debugging = False
@@ -145,5 +142,5 @@ except KeyboardInterrupt:
     print("Exiting program!")
 finally:
     prompt.close()
-    sel.close()
+    prompt.selector.close()
     sys.exit(0)

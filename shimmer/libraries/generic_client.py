@@ -7,15 +7,14 @@ from libraries.client_packets import Message
 from libraries.parser import parse
 
 # TODO: load debugging settings per client from a config file.
-debugging = True
-
+debugging = False
 
 class Client:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
 
-    def __init__(self, selector, name):
+    def __init__(self, name):
         self.name = name  # the role name for this client generic client object.
-        self.selector = selector
+        self.selector = selectors.DefaultSelector()
         self.my_address = get_address(name)
         self.server_address = get_address("server")
         self.addr = self.my_address  # for the selector printer
@@ -51,16 +50,11 @@ class Client:
         """Try and make a connection to the server, add this socket to the selector."""
         print(f"Starting connection to {self.server_address}")
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print("Created socket")
         # SO_REUSEADDR avoids bind() exception: OSError: [Errno 48] Address already in use
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        print("Set socket options.")
         self.socket.bind(self.my_address)
-        print("Bound socket")
         self.socket.setblocking(False)
-        print("Disabled blocking")
         self.socket.connect_ex(self.server_address)
-        print("Connected to server")
 
         events = selectors.EVENT_WRITE
         # add this socket to the register if successful

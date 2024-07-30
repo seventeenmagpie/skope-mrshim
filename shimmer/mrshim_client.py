@@ -19,8 +19,8 @@ if JUPITER_PLUGGED_IN:
 class SinopeClient(Client):
     """A class for Sinope. Handles !shim commands and writes shim currents to the file."""
 
-    def __init__(self, selector, name):
-        super().__init__(selector, name)
+    def __init__(self, name):
+        super().__init__(name)
         self.start_connection()
         self.channel_number = 24
         self.currents = [0 for _ in range(1, self.channel_number)]
@@ -181,12 +181,11 @@ if len(sys.argv) != 1:
 
 # create the selector
 # every client creates its own default selector, which isnt used outside of the class, shouldn't we do this in the generic client class?
-sel = selectors.DefaultSelector()
 
 name = "sinope"
 
 # create and register the command prompt.
-sinope = SinopeClient(sel, name)
+sinope = SinopeClient(name)
 # sinope.selector.register(sinope.descriptor_socket, selectors.EVENT_WRITE, data=sinope)
 
 debugging = False
@@ -197,5 +196,5 @@ except KeyboardInterrupt:
     print("Detected keyboard interrupt. Closing program.")
 finally:
     sinope.close()
-    sel.close()
+    sinope.selector.close()
     sys.exit(0)

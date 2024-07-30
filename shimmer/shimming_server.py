@@ -11,7 +11,7 @@ from libraries.parser import parse
 from libraries.server_packets import Message, server_logger
 from libraries.exceptions import CommandRecieved, ClientDisconnect
 
-debugging = True
+debugging = False
 
 
 class ModelClient:

@@ -89,29 +89,7 @@ class CommandPrompt(Client):
                 encoding="binary",
                 content=bytes(action + value, encoding="utf-8"),
             )
-
-    def main_loop(self):
-        events = self.selector.select(
-            timeout=0
-        )  # get waiting io events. timeout = 0 to wait without blocking.
-
-        # selector_printer(prompt.selector, events)
-
-        for key, mask in events:
-            message = key.data
-            try:
-                message.process_events(mask)
-            except ClientDisconnect:
-                print("Disconnected from server.")
-                message.close()
-                raise KeyboardInterrupt  # to exit the rest of the program.
-            except Exception:
-                print(
-                    f"Main: Error: Exception for {message.addr}:\n"
-                    f"{traceback.format_exc()}"
-                )
-                message.close()
-
+ 
     def handle_command(self, command_string):
         command_tokens = parser.parse(command_string)
         self.logger.debug(f"Recieved command tokens are {command_tokens}")

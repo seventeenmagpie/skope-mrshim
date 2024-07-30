@@ -118,5 +118,27 @@ class Client:
 
         return mask
 
+    def main_loop(self):
+        events = self.selector.select(
+            timeout=0
+        )  # get waiting io events. timeout = 0 to wait without blocking.
+        # TODO: fasten to global debugging flag
+        # selector_printer(self.selector, events)
+
+        for key, mask in events:
+            message = key.data
+            try:
+                message.process_events(mask)
+            except ClientDisconnect:
+                print("Disconnected from server.")
+                message.close()
+                raise KeyboardInterrupt  # to exit the rest of the program.
+            except Exception:
+                print(
+                    f"Main: Error: Exception for {message.addr}:\n"
+                    f"{traceback.format_exc()}"
+                )
+                message.close()
+
     def close(self):
         print(f"Closing {self.name}. Goodbye \\o")

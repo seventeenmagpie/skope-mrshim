@@ -7,7 +7,7 @@ from libraries.client_packets import Message
 from libraries.parser import parse
 
 # TODO: load debugging settings per client from a config file.
-debugging = False
+debugging = True
 
 
 class Client:
@@ -51,11 +51,16 @@ class Client:
         """Try and make a connection to the server, add this socket to the selector."""
         print(f"Starting connection to {self.server_address}")
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print("Created socket")
         # SO_REUSEADDR avoids bind() exception: OSError: [Errno 48] Address already in use
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        print("Set socket options.")
         self.socket.bind(self.my_address)
+        print("Bound socket")
         self.socket.setblocking(False)
+        print("Disabled blocking")
         self.socket.connect_ex(self.server_address)
+        print("Connected to server")
 
         events = selectors.EVENT_WRITE
         # add this socket to the register if successful
@@ -83,6 +88,7 @@ class Client:
         message.request = request
         self.selector.modify(self.socket, events, data=message)
         self.logger.debug(f"Added request to {self.name}")
+        self.logger.debug(f"That request is {message.request}")
 
     def handle_command(self, command_string):
         """Should be overridden by child class."""

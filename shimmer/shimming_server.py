@@ -11,7 +11,7 @@ from libraries.parser import parse
 from libraries.server_packets import Message, server_logger
 from libraries.exceptions import CommandRecieved, ClientDisconnect
 
-debugging = False
+debugging = True
 
 
 class ModelClient:
@@ -101,14 +101,6 @@ class ShimmingServer:
             if (addr[0] == reg_address[0]) and (addr[1] == reg_address[1]): 
                 name_assigned = True
                 break  # role = the current role
-
-        if not name_assigned:
-            # matlab won't let me connect with a static ip,
-            # so we need to rewrite the config file to match the actual ip
-            # NOTE: may change when matlab implementation done with python.
-            role = "matlab"
-            registry.registry["matlab"]["address"] = addr[0]
-            registry.registry["matlab"]["port"] = str(addr[1])
 
         print(f"{role} just connected.")
         # create a GenericClient object for keeping track of who is connected.

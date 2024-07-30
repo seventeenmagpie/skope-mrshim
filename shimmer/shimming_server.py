@@ -68,7 +68,8 @@ class ShimmingServer:
         if command_tokens[0] == "halt":
             print("Halting server")
             self.running = False
-        elif command_tokens[0] == "start":
+        elif command_tokens[0] == "start": 
+            # TODO: make these mrshim client commands and make them actually do something there
             print("Starting shimming")
             self.shimming = True
         elif command_tokens[0] == "stop":

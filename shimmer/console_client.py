@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
+# TODO: change this to point to the correct venv executable in all the files this is present in.
 
 import selectors
 import sys
 import traceback
 
-from libraries.exceptions import ClientDisconnect
 import libraries.parser as parser
 from libraries.generic_client import Client
 from libraries.printers import selector_printer
@@ -19,7 +19,6 @@ class CommandPrompt(Client):
 
     def send_command(self):
         """Input a command string from the user, turn it into a request and send it to the server."""
-
         command_string = input("[shimmer]: ")
 
         if not command_string:
@@ -45,14 +44,15 @@ class CommandPrompt(Client):
             except IndexError:
                 print('Usage: relay <to name> "<content>"')
                 return
+        elif command_tokens[0][0] == "!":
+            self.handle_command(command_string[1:])
+            return
         else:
             action = "command"
             value = {"to": "server", "from": self.name, "content": command_string}
             request = self.create_request(action, value)
+        # BUG: currently crashes if a client command is done, because request is None
         self.send_request(request)
-        # once a command is sent, we shouldn't send another until the response is back
-        # NOTE: the response packet will set this back to w.
-        # self._set_selector_mode("r")
 
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
@@ -115,13 +115,9 @@ class CommandPrompt(Client):
     def handle_command(self, command_string):
         command_tokens = parser.parse(command_string)
         self.logger.debug(f"Recieved command tokens are {command_tokens}")
-        try:
-            if command_tokens[0] == "echo":
-                print(f"{' '.join(command_tokens[1:])}")
-        except IndexError:
-            print(
-                f"Incorrect number of arguments for command {command_tokens[0]}. Look up correct usage in manual."
-            )
+        if command_tokens[0] == "egg":
+            print(f"How many MRI scanners does it take to change a lightbulb? \a")
+        super().handle_command(command_string)
 
 
 # check correct arguments (none)

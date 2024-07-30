@@ -152,18 +152,19 @@ class SinopeClient(Client):
         command_tokens = parser.parse(command_string)
         self.logger.debug(f"Recieved command tokens are {command_tokens}")
         try:
-            if command_tokens[0] == "echo":
-                print(f"{' '.join(command_tokens[1:])}")
-            elif command_tokens[0] == "shim":
+            if command_tokens[0] == "shim":
                 print("handling shimming command")
                 self.currents = [
                     float(command_tokens[1]) for _ in range(1, self.channel_number)
                 ]
                 self._set_selector_mode("w")
+            elif command_tokens[0] == "egg":
+                print(f"Step aside Mr. Beat! \a")
         except IndexError:
             print(
                 f"Incorrect number of arguments for command {command_tokens[0]}. Look up correct usage in manual."
             )
+        super().handle_command(command_string)
 
     def close(self):
         if JUPITER_PLUGGED_IN:
@@ -179,6 +180,7 @@ if len(sys.argv) != 1:
 
 
 # create the selector
+# every client creates its own default selector, which isnt used outside of the class, shouldn't we do this in the generic client class?
 sel = selectors.DefaultSelector()
 
 name = "sinope"

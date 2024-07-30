@@ -4,6 +4,7 @@ import socket
 import sys
 from libraries.registry import registry, get_address
 from libraries.client_packets import Message
+from libraries.parser import parse
 
 # TODO: load debugging settings per client from a config file.
 debugging = False
@@ -85,7 +86,15 @@ class Client:
 
     def handle_command(self, command_string):
         """Should be overridden by child class."""
-        print(f"Client {self.name} is handling command: {command_string}")
+        self.logger.info(f"Client {self.name} is handling command: {command_string}")
+        command_tokens = parse(command_string)
+        try:
+            if command_tokens[0] == "echo":
+                print(f"{' '.join(command_tokens[1:])}")
+        except IndexError:
+            print(
+                f"Incorrect number of arguments for command {command_tokens[0]}. Look up correct usage in manual."
+            )
 
     def process_events(self, mask):
         """Called by the clients packet object either before or after its own read/write methods.
@@ -105,7 +114,9 @@ class Client:
         if mask & selectors.EVENT_READ:
             print("Client is doing something after the packet read.")
         if mask & selectors.EVENT_WRITE:
-            print("Client is donig something before the packet wrote.")
+            print("Client is doing something before the packet wrote.")
+
+        return mask
 
     def close(self):
         print(f"Closing {self.name}. Goodbye \\o")

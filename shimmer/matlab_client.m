@@ -17,8 +17,28 @@
 clear;
 clc;
 
+% TODO: make paths hardware agnostic (windows vs linux)
 addpath('./libraries/');
 
+% adds this directory to the path so i can use my python code again
+% From: https://uk.mathworks.com/help/matlab/matlab_external/call-user-defined-custom-module.html
+if count(py.sys.path, pwd) == 0
+    insert(py.sys.path, int32(0), pwd);
+end
+
+
+%% python setup
+% create the client
+client = py.matlab_client_api.MatlabClient('matlab');
+
+client.start_connection()
+% connect it to the server
+% the best UI
+% have a block at the start that sets up the server and paths and
+% everything
+% have a block at the end that closes everything all nicely.
+% have a function they can call from anywhere in their script to send off
+% shim currents.
 
 %% set connection properties
 % read from network_description.toml

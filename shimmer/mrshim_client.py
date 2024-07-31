@@ -77,7 +77,7 @@ class SinopeClient(Client):
 
     def send_shims_to_jupiter(self):
         # TODO: do more interesting checks.
-        max = 2
+        max = 2000
         for idx, current in enumerate(self.currents):
             if abs(current) > max:
                 print(f"Current exceeds safe maximum +/-{max}. Setting to 0A.")
@@ -131,11 +131,18 @@ class SinopeClient(Client):
         self.logger.debug(f"Recieved command tokens are {command_tokens}")
         try:
             if command_tokens[0] == "shim":
-                print("handling shimming command")
-                self.currents = [
-                    float(command_tokens[1]) for _ in range(1, self.channel_number)
-                ]
+                tile = [int(current_string)/1000 for current_string in command_tokens[1:]]  # the tile
+                flooring=[0 for _ in range(self.channel_number)]  # the empty floor
+
+                # tiles the tile across the floor        
+                # i think this is very clever, which probably means it's wrong
+                for idx, _ in enumerate(flooring):
+                    flooring[idx] = tile[idx % len(tile)]
+                
+                self.currents = flooring
+                print(f"currents is {self.currents}")
                 self._set_selector_mode("w")
+
             elif command_tokens[0] == "egg":
                 print(f"Step aside Mr. Beat! \a")
         except IndexError:

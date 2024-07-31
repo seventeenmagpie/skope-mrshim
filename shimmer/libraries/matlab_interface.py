@@ -13,15 +13,23 @@ class MatlabClient(Client):
         name = 'matlab'
         super().__init__(name)
     
-    def send_currents(self, current):
+    def send_currents(self, currents):
         """Called by matlab. Sends a current."""
-        print(f"Sending currents: {current}")
+        
+        if isinstance(currents, int):
+            currents = [currents]
+        else:
+            currents = currents.tolist()
+
+        currents_string = ' '.join([str(_) for _ in currents])
+        print(f"Sending currents: {currents_string}")
+
         # mismatch in dictionary forms because
         # we want to use the python keyword 'from' as a key.
         value = {
                 "to":"sinope",
                 "from":"matlab",
-                "content":f"!shim {current}",
+                "content":f"!shim {currents_string}",
                 }
 
         request = dict(

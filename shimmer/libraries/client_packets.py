@@ -153,7 +153,7 @@ class Message:
             self.client.logger.debug("client is doing something after packet read")
             mask = self.client.process_events(mask)
         if mask & selectors.EVENT_WRITE:
-            # self.client.logger.debug("client is doing something before packet write")
+            self.client.logger.debug("client is doing something before packet write")
             mask = self.client.process_events(mask)
         if mask & selectors.EVENT_WRITE:
             self.client.logger.debug("packet is writing")
@@ -321,7 +321,3 @@ class Message:
             self._process_response_binary_content()
 
         self._clear()
-        # client_object = self.selector.get_key(self.client.descriptor_socket).data
-        # self.selector.modify(
-        # self.client.descriptor_socket, selectors.EVENT_WRITE, data=client_object
-        # )  # can recieve another request from client

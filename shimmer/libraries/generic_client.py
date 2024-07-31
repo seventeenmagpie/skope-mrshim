@@ -112,9 +112,9 @@ class Client:
         # TODO: think more about this.
 
         if mask & selectors.EVENT_READ:
-            print("Client is doing something after the packet read.")
+            self.logger.debug("Client is doing something after the packet read.")
         if mask & selectors.EVENT_WRITE:
-            print("Client is doing something before the packet wrote.")
+            self.logger.debug("Client is doing something before the packet wrote.")
 
         return mask
 
@@ -141,4 +141,12 @@ class Client:
                 message.close()
 
     def close(self):
-        print(f"Closing {self.name}. Goodbye \\o")
+        # TODO: make this actually close things and not just print a message lol.
+        try:
+            message = self.selector.get_key(self.socket).data
+            message.close()
+        except:
+            print("Unable to close message.")
+            print("You may need to restart shimmer to restore correct behaviour.")
+
+        print(f"Closed {self.name} client. Goodbye \\o")

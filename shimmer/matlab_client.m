@@ -32,4 +32,14 @@ client.start_connection()
 
 %% send a shim
 disp("trying shimming")
-client.send_currents(0.1234)
+currents = [10, 20, 30];  % in milliamps!
+
+if min(currents) < 1  % very crude, but best i can do since matlab defaults to doubles.
+    disp("currents need to be in an integer number of milliamps.")
+end
+
+client.send_currents(int32(currents))
+% send an integer number of milliamps to avoid datatype issues.
+
+%% close the client(important!)
+client.close()

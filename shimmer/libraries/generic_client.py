@@ -5,9 +5,7 @@ import sys
 from libraries.registry import registry, get_address
 from libraries.client_packets import Message
 from libraries.parser import parse
-
-# TODO: load debugging settings per client from a config file.
-debugging = False
+from libraries.printers import selector_printer
 
 class Client:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
@@ -27,8 +25,10 @@ class Client:
             filemode="w",
         )
 
+        self.debugging = registry[self.name].getboolean('debug')
         # uncomment to enable the logging messages to be printed to the console as well as log file
-        if debugging:
+        if self.debugging:
+            print("Debugging mode enabled.")
             handler = logging.StreamHandler(sys.stdout)
             handler.setLevel(logging.DEBUG)
             self.logger.addHandler(handler)
@@ -122,8 +122,9 @@ class Client:
         events = self.selector.select(
             timeout=0
         )  # get waiting io events. timeout = 0 to wait without blocking.
-        # TODO: fasten to global debugging flag
-        # selector_printer(self.selector, events)
+        
+        if self.debugging:
+            selector_printer(self.selector, events)
 
         for key, mask in events:
             message = key.data
@@ -141,7 +142,6 @@ class Client:
                 message.close()
 
     def close(self):
-        # TODO: make this actually close things and not just print a message lol.
         try:
             message = self.selector.get_key(self.socket).data
             message.close()

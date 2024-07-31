@@ -18,11 +18,9 @@ def get_address(name: str):
 
 
 def get_name_from_address(query_address):
-    for name, _ in registry.items():
+    for name in registry.sections():
         if get_address(name) == query_address:
             return name
 
-
-# placed here so can be accessed by rest of program.
-# TODO: put inside a proper __init__ or whatever so this is a real module.
+# placed here so can be used by rest of program, as i understand it.
 registry, clients_on_registry

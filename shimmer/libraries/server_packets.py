@@ -3,25 +3,10 @@ import json
 import selectors
 import struct
 import sys
-import logging
-import copy
 
 import libraries.registry as registry
 from .parser import parse
 from .exceptions import CommandRecieved, ClientDisconnect
-
-server_logger = logging.getLogger(__name__)
-logging.basicConfig(
-    filename="./logs/shimmer_server.log", level=logging.DEBUG, filemode="w"
-)
-
-debugging = False
-
-if debugging:
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
-    server_logger.addHandler(handler)
-
 
 class Message:
     def __init__(self, selector, sock, addr, server):
@@ -58,13 +43,13 @@ class Message:
 
     def _read(self):
         """Read from the open socket. Writes data into a buffer."""
-        server_logger.debug(f"trying my best to read from {self.sock}")
+        self.server.logger.debug(f"trying my best to read from {self.sock}")
         try:
             # Should be ready to read
-            server_logger.debug("trying to use .recv")
+            self.server.logger.debug("trying to use .recv")
             data = self.sock.recv(4096)
         except BlockingIOError:
-            server_logger.debug("blocking ioerror reached")
+            self.server.logger.debug("blocking ioerror reached")
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
         else:  # then
@@ -100,12 +85,12 @@ class Message:
             try:
                 # Should be ready to write
                 if self.is_relayed_message:
-                    server_logger.info(
+                    self.server.logger.info(
                         f"Sending {self._send_buffer!r} to {self.to_address}"
                     )
                     sent = self.to_socket.send(self._send_buffer)
                 else:
-                    server_logger.info(f"Sending {self._send_buffer!r} to {self.addr}")
+                    self.server.logger.info(f"Sending {self._send_buffer!r} to {self.addr}")
                     sent = self.sock.send(self._send_buffer)
             except BlockingIOError:
                 # Resource temporarily unavailable (errno EWOULDBLOCK)
@@ -144,7 +129,7 @@ class Message:
             "content-length": len(content_bytes),
         }
         jsonheader.update(optional_header)
-        server_logger.info(f"jsonheader is {jsonheader}")
+        self.server.logger.info(f"jsonheader is {jsonheader}")
         jsonheader_bytes = self._json_encode(jsonheader, "utf-8")
 
         # get protoheader (length of jsonheader)
@@ -162,7 +147,7 @@ class Message:
 
             # generate the response message if we are disconnected
             if self.disconnect:
-                server_logger.debug("creating disconnect response")
+                self.server.logger.debug("creating disconnect response")
                 content = {"result": f"disconnect"}
 
         elif self.jsonheader["content-type"] == "relay":
@@ -196,37 +181,31 @@ class Message:
 
     def process_events(self, mask):
         """Read or write depending on state of socket."""
-        server_logger.debug("processing events")
         if mask & selectors.EVENT_READ:
-            server_logger.debug("server is reading")
             self.read()
         if mask & selectors.EVENT_WRITE:
-            server_logger.debug("server is writing")
             self.write()
 
     def read(self):
         """Reads from socket, then processes data as it comes."""
         self._read()
         if self._jsonheader_len is None:
-            server_logger.debug("processing protoheader")
             self.process_protoheader()
 
         if self._jsonheader_len is not None:
             if self.jsonheader is None:
-                server_logger.debug("processing jsonheader")
                 self.process_jsonheader()
 
         if self.jsonheader:
             if self.request is None:
-                server_logger.debug("processing request")
                 self.process_request()
 
     def write(self):
         """Creates a response if neceserry then writes it to the socket."""
         if self.request:
-            server_logger.debug(f"self.request is {self.request}")
+            self.server.logger.debug(f"self.request is {self.request}")
             if not self.response_created:
-                server_logger.debug("creating response")
+                self.server.logger.debug("creating response")
                 self.create_response()
 
         self._write()
@@ -235,7 +214,7 @@ class Message:
         """Unregister the socket from the selector and closes the socket."""
         print(f"Closing connection to {self.addr}")
         try:
-            server_logger.debug("unregistering socket.")
+            self.server.logger.debug("unregistering socket.")
             self.selector.unregister(self.sock)
         except Exception as e:
             print(f"Error: selector.unregister() exception for " f"{self.addr}: {e!r}")
@@ -283,7 +262,7 @@ class Message:
 
     def process_request(self):
         """Process the actual content of the message."""
-        server_logger.debug("processing request")
+        self.server.logger.debug("processing request")
 
         content_len = self.jsonheader["content-length"]
 
@@ -301,9 +280,9 @@ class Message:
             self.request = self._json_decode(data, encoding)
 
         if self.jsonheader["content-type"] == "text/json":
-            server_logger.info(f"Received request {self.request!r} from {self.addr}")
+            self.server.logger.info(f"Received request {self.request!r} from {self.addr}")
         elif self.jsonheader["content-type"] == "command":
-            server_logger.debug("Command packet recieved.")
+            self.server.logger.debug("Command packet recieved.")
 
             command = self.request
             print(f"Server got command {command}")
@@ -317,18 +296,18 @@ class Message:
 
             command_tokens = parse(command)
 
-            if command_tokens[0] == "!disconnect":
+            if command_tokens[0] == "disconnect":
                 self.disconnect = True
 
         elif self.jsonheader["content-type"] == "relay":
             # we don't need to do anything to the message content, just pass it on
-            server_logger.info(
+            self.server.logger.info(
                 f"Relaying message from {self.jsonheader['from']} to {self.jsonheader['to']}."
             )
         else:
             # Binary or unknown content-type
             self.request = data
-            server_logger.info(
+            self.server.logger.info(
                 f"Received {self.jsonheader['content-type']} "
                 f"request from {self.addr}"
             )
@@ -354,7 +333,7 @@ class Message:
             response = self._create_response_json_content()
         else:
             response = self._create_response_binary_content()
-        server_logger.debug(f"created response is {response}")
+        self.server.logger.debug(f"created response is {response}")
         message = self._create_message(optional_header_parts, **response)
         self.response_created = True
         self._send_buffer += message

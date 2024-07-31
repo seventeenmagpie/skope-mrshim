@@ -9,7 +9,6 @@ from libraries.exceptions import ClientDisconnect
 import libraries.parser as parser
 from libraries.generic_client import Client
 from libraries.client_packets import Message
-from libraries.printers import selector_printer
 
 JUPITER_PLUGGED_IN = False
 if JUPITER_PLUGGED_IN:
@@ -23,6 +22,7 @@ class SinopeClient(Client):
         super().__init__(name)
         self.start_connection()
         self.channel_number = 24
+        self.shimming = False  # shimming is disabled by default!
         self.currents = [0 for _ in range(1, self.channel_number)]
 
         # because we never send anything first, we need to create the Message object for this client manually.
@@ -43,26 +43,15 @@ class SinopeClient(Client):
             mrshim.LoadShimSets("shims.txt")
             mrshim.ApplyShimManually("reset")
 
-    def _clear(self):
-        """Clear the buffers and sentinels ready to do the next thing."""
-        self.client.logger.debug(f"_clear called. self.is_relay is {self.is_relay}")
-        self.request = None
-        self._recv_buffer = b""
-        self._send_buffer = b""
-        self._request_queued = False
-        self._jsonheader_len = None
-        self.jsonheader = None
-        self.response = None
-        self.is_relay = False
-
-        # NOTE: *_client.py sets this back to write once a command is recieved.
-        self._set_selector_events_mask("r")
-        self.logger.debug(
-            f"After clear, mask is {self.selector.get_key(self.sock).events}"
-        )
-
-    def write_shims_to_file(self):
+    def apply_shims(self):
         """Decide what to do with the shim values."""
+
+        if not self.shimming:
+            # if we aren't shimming, set all currents to 0
+            print(f"Shimming is disabled. Setting currents to 0.")
+            self.currents = [0 for _ in range(self.channel_number)]
+
+        self.logger.debug(f"{self.name} is applying currents: {self.currents}")
         if JUPITER_PLUGGED_IN:
             self.send_shims_to_jupiter()
         else:
@@ -90,7 +79,7 @@ class SinopeClient(Client):
         # this client doesn't actually do anything to the server itself.
         # it just waits for shims to be sent to it and then writes them to the file.
         if mask & selectors.EVENT_READ:
-            self.write_shims_to_file()
+            self.apply_shims()
             return mask
         if mask & selectors.EVENT_WRITE:
             # to prevent packet writing, set mask to read.
@@ -140,9 +129,13 @@ class SinopeClient(Client):
                     flooring[idx] = tile[idx % len(tile)]
                 
                 self.currents = flooring
-                print(f"currents is {self.currents}")
                 self._set_selector_mode("w")
-
+            elif command_tokens[0] == "start":
+                print("Shimming has been started.")
+                self.shimming = True
+            elif command_tokens[0] == "stop":
+                print("Shimming has been stopped.")
+                self.shimming = False
             elif command_tokens[0] == "egg":
                 print(f"Step aside Mr. Beat! \a")
         except IndexError:

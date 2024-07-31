@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# TODO: change this to point to the correct venv executable in all the files this is present in.
 
 import selectors
 import sys
@@ -23,7 +22,7 @@ class CommandPrompt(Client):
 
         if not command_string:
             print("Please enter a command!")
-            return
+            return 1
 
         command_tokens = parser.parse(command_string)
 
@@ -40,19 +39,20 @@ class CommandPrompt(Client):
                         "content": command_tokens[2],
                     },
                 )
-                self.logger.debug(f"request is {request}")
+                self.send_request(request)
             except IndexError:
                 print('Usage: relay <to name> "<content>"')
-                return
+                return 1
         elif command_tokens[0][0] == "!":
             self.handle_command(command_string[1:])
-            return
+            self._set_selector_mode('r')
+            return 1
         else:
             action = "command"
             value = {"to": "server", "from": self.name, "content": command_string}
             request = self.create_request(action, value)
-        # BUG: currently crashes if a client command is done, because request is None
-        self.send_request(request)
+            self.send_request(request)
+        return 2
 
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
@@ -60,7 +60,7 @@ class CommandPrompt(Client):
             # the selector for the prompt is set back to write mode by the packet once its finished processing.
             return mask
         if mask & selectors.EVENT_WRITE:
-            self.send_command()
+            mask = self.send_command()  # .send_command returns a mask because client commands need us to *not* write afterwards.
             return mask
 
     def create_request(self, action, value):
@@ -94,7 +94,8 @@ class CommandPrompt(Client):
         command_tokens = parser.parse(command_string)
         self.logger.debug(f"Recieved command tokens are {command_tokens}")
         if command_tokens[0] == "egg":
-            print(f"How many MRI scanners does it take to change a lightbulb? \a")
+            print(f"Dogs can't operate MRI scanners... \a")
+            print(f"But cats can!")
         super().handle_command(command_string)
 
 

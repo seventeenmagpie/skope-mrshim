@@ -27,7 +27,6 @@ class Message:
 
     def _clear(self):
         """Clear the buffers and sentinels ready to do the next thing."""
-        self.client.logger.debug(f"_clear called. self.is_relay is {self.is_relay}")
         self.request = None
         self._recv_buffer = b""
         self._send_buffer = b""
@@ -38,16 +37,10 @@ class Message:
 
         if self.is_relay:
             self.is_relay = False
-            # console_object = self.selector.get_key(self.client.descriptor_socket).data
-            # if relay, won't get a response, so we can recieve another command immediately
-            # self.selector.modify(self.client.descriptor_socket, selectors.EVENT_WRITE, data=console_object)
             self._set_selector_events_mask("w")
         else:
             # NOTE: *_client.py sets this back to write once a command is recieved.
             self._set_selector_events_mask("r")
-        self.client.logger.debug(
-            f"After _clear, mask is {self.selector.get_key(self.sock).events}"
-        )
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -117,7 +110,6 @@ class Message:
 
         jsonheader.update(optional_header)
 
-        self.client.logger.info(f"jsonheader is: {jsonheader}")
         jsonheader_bytes = self._json_encode(jsonheader, "utf-8")
         message_hdr = struct.pack(">H", len(jsonheader_bytes))
         message = message_hdr + jsonheader_bytes + content_bytes

@@ -78,6 +78,7 @@ class ShimmingServer:
         if command_tokens[0] == "halt":
             print("Halting server")
             self.running = False
+            # TODO: send disconnect relays to all connected clients
         elif command_tokens[0] == "list":
             print("Listing connected clients:")
             for name, client in reg.clients_on_registry.items():
@@ -98,6 +99,7 @@ class ShimmingServer:
         name_assigned = False
 
         # work out which role the newly connected client is by comparing against the directory registry file.
+        # BUG: if a client is not identified, it falls through to the final client in the .ini
         for role in reg.registry.sections():
             reg_address = reg.get_address(role)
             name_assigned = False
@@ -144,6 +146,7 @@ class ShimmingServer:
                             del client
                             break
                     del reg.clients_on_registry[name]
+                    # BUG: server seems to hang on disconnect. check status of selector.
                 except Exception:
                     print(
                         f"Main: Error: Exception for {self.current_message.addr}:\n"

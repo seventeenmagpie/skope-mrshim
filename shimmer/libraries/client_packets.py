@@ -101,6 +101,7 @@ class Message:
         self, optional_header=None, *, content_bytes, content_type, content_encoding
     ):
         """Create the bytes of message that are sent down the wire."""
+        # TODO: always assume utf-8 encoding
         jsonheader = {
             "byteorder": sys.byteorder,
             "content-type": content_type,
@@ -128,6 +129,7 @@ class Message:
 
     def _process_response_binary_content(self):
         """Process a binary response."""
+        # TODO: remove binary content stuff. we don't need it.
         content = self.response
         self.client.logger.info(f"Got response: {content!r}")
 
@@ -200,6 +202,7 @@ class Message:
         content_type = self.request["type"]
         content_encoding = self.request["encoding"]
         optional_header_parts = {}
+        # TODO: remove unneeded request types.
         if content_type == "text/json":
             req = {
                 "content_bytes": self._json_encode(content, content_encoding),
@@ -305,6 +308,7 @@ class Message:
             self._process_response_json_content()
         else:
             # Binary or unknown content-type
+            # TODO: do not process binary data, just complain about it.
             self.response = data
             self.client.logger.info(
                 f"Received {self.jsonheader['content-type']} "

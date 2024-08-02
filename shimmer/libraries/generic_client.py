@@ -86,6 +86,7 @@ class Client:
 
     def handle_command(self, command_string):
         """Should be overridden by child class."""
+        # TODO: add a command here so that if we get a disconnect on relay its the same as a !disconnect.
         self.logger.info(f"Client {self.name} is handling command: {command_string}")
         command_tokens = parse(command_string)
         try:

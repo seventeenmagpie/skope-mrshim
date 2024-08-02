@@ -3,11 +3,6 @@ import configparser
 clients_on_registry = {}
 registry = configparser.ConfigParser()
 registry.read("network_description.ini")
-# print(registry.sections())
-
-# for name in registry.sections():
-#    print(f"{name} @ {registry[name]['address']}:{registry[name]['port']},")
-
 
 def get_socket(name: str):
     return clients_on_registry[name].socket

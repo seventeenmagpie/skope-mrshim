@@ -138,6 +138,7 @@ class Message:
         return message
 
     def _create_response_json_content(self):
+        # TODO: always assume utf-8 encoding. we don't need to support alternatives.
         """Generate the json response that we'll send back to the client."""
         if self.jsonheader["content-type"] == "command":
             command = self.request
@@ -170,6 +171,7 @@ class Message:
 
         return response
 
+    # TODO: remove binary packets. we don't need them.
     def _create_response_binary_content(self):
         """Generate a binary response that we'll send back to the client."""
         response = {

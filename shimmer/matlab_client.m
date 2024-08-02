@@ -5,10 +5,10 @@ clc;
 % COMMENT OUT THE INCORRECT LINES
 % SET PATH TO SHIMMER DIRECTORY
 % ON MAGS' LAPTOP
-%shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrshim/shimmer';
+shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrshim/shimmer';
 
 % ON SKOPE COMPUTER
-shimmer_directory = 'C:/Users/skope/Documents/shimmer/';
+%shimmer_directory = 'C:/Users/skope/Documents/shimmer/';
 
 % ON MRSHIMS COMPUTER
 %shimmer_directory = N/A;
@@ -17,6 +17,7 @@ shimmer_directory = 'C:/Users/skope/Documents/shimmer/';
 addpath([shimmer_directory, '/libraries/'])
 addpath([shimmer_directory, '/libraries/methods/']);
 data_folder = [shimmer_directory , 'data/'];
+skope_temp = [shimmer_directory, 'data/skope_tmp'];
 
 % adds libraries to the python path
 % From: https://uk.mathworks.com/help/matlab/matlab_external/call-user-defined-custom-module.html
@@ -143,8 +144,8 @@ shortScanDef = sendCommand(connCtrl, 'getShortScanDef' );
 disp(shortScanDef)
 
 % modify short scan definition (setShortScanDef)
-shortScanDef.scanName = 'Test Scan 20-10-2019';
-shortScanDef.scanDescription = 'Skope Remote Acquisition Control';
+shortScanDef.scanName = 'shimmer';
+shortScanDef.scanDescription = 'Dynamic shimming via Shimmer (MMCT, 2024)';
 shortScanDef.nrDynamics = 2;  % skope needs at least 2 dynamics to do the bfit.
 shortScanDef.dynamicTR = 0.3;  % want this to be as short a possible for lowest latency
 % another parameter to look at is interleaving.
@@ -156,27 +157,40 @@ shortScanDef.extTrigger = false;
 shortScanDef.raw = false;
 shortScanDef.k = false;
 shortScanDef.Bfit = true;
-disp('Setting short scan definition... ');
+disp('Setting short scan paramaters.');
 sendCommand(connCtrl, 'setShortScanDef', shortScanDef );
 
+% set project path
+disp('Setting project path. ');
+sendCommand(connCtrl, 'setProjectPath', skope_temp );
+
 % get project path
-disp('Getting project path... ');
+disp('Bfit scan data will be stored at:');
 projectPath = sendCommand(connCtrl, 'getProjectPath' );
 disp(projectPath)
 
-% set project path
-% disp('Setting project path... ');
-% projectPath = fullfile(pwd,'testData');
-% sendCommand(connCtrl, 'setProjectPath', projectPath );
-
-
 %% start scan
-disp('Starting scan... ');
+disp('Beginning scan loop.');
 keep_going=[];
+count = 0;
 while isempty(keep_going)
     sendCommand(connCtrl, 'startScan' );
     
+    % TODO: make a nice status thing that continuously
+    % updates.
+    % maybe like: 
+    % Acquiring Skope data: ' '/in progress/done
+    % Calculating currents: ' '/in progress/done
+    % Writing shim values : ' '/in progress/done
+    % Count               :             1234
+    % Uptime              :            10:03
+    % this is probably quite difficult to do nicely.
+    % should make a status_update("Status", "Value") function that does the
+    % backspacing and padding and everything for us.
+    % status_update("reset")
+
     % receive B fit data
+    disp("Acquiring Skope data.")
     [data, scanHeader] = getData(connData,portData);
     
     % check we have data, if not, skip processing and acquire again
@@ -188,7 +202,9 @@ while isempty(keep_going)
     % process the data
     data=squeeze(squeeze(data));
     average_field = mean(data, 2);
-    disp(average_field)
+
+    %disp('Average field values: [mT]: ')
+    %disp(average_field);
     
     % below taken from richard bowtell's script
     field_in_hertz = average_field*267.5e6/(2*pi);  % hydrogen hertz
@@ -196,6 +212,7 @@ while isempty(keep_going)
     % TODO: compare these to what skope calculates itself, though this isnt
     % exactly intensive...
     condition_number = cond(spharms);
+    disp("Calculating currents.")
     spharm_coeffs = lsqr(spharms', field_in_hertz);
     
     currents = zeros([NUMBER_COIL_CHANNELS, 1]);
@@ -203,13 +220,17 @@ while isempty(keep_going)
     for i = 1:size(spharm_coeffs)
         currents = currents-(spharm_coeffs(i).*coil_coefficients(i, :))';
     end
-    disp('currents are: ')
-    disp(currents)
+
+    %disp('Currents are: [mA]')
+    %disp(currents)
     
+    disp("Writing currents.")
     % currents should be a ROW vector of currents in MILLIAMPS
     client.send_currents(int32(currents'))
     
     %keep_going = input('Enter anything to stop. ');
+    disp("That was loop number: ", count)
+    count = count +1;
 end
 
 %% close connections

@@ -10,7 +10,7 @@ cBlock       = 1;    	% Current data block
 Terminate    = false;   % Termination variable
 progress_str = '';      % Progress info
 
-disp('                      ')
+%disp('                      ')
 
 %% Receive data
 while ~Terminate
@@ -24,15 +24,15 @@ while ~Terminate
         switch Header.dataID
             case 'H'
                 % Get the scan header
-                disp('Receiving scan header')
+                %disp('Receiving scan header')
                 ScanHeader = char(fread(FID,double(Header.blockSize),'char')');
                 ScanHeader = jsondecode(ScanHeader);
                 
             case 'D'
                 % Report progress
-                percentFinished = floor((100*cBlock)/(ScanHeader.nrDynamics*ScanHeader.nrInterleaves));
-                progress_str    = sprintf('\nReceiving data block #%d | Progress = %3.0f%%\n',cBlock,percentFinished );
-                fprintf([repmat('\b',1,numel(progress_str)) '%s'],progress_str);
+                %percentFinished = floor((100*cBlock)/(ScanHeader.nrDynamics*ScanHeader.nrInterleaves));
+                %progress_str    = sprintf('\nReceiving data block #%d | Progress = %3.0f%%\n',cBlock,percentFinished );
+                %fprintf([repmat('\b',1,numel(progress_str)) '%s'],progress_str);
                 
                 % Get the data
                 DataSize = double(Header.blockSize)*double(Header.nrChannels)*8;
@@ -61,19 +61,19 @@ while ~Terminate
                 end
                 
                 % Display
-                switch (FID.RemotePort-PortBase)
-                    case 1
-                        plot(temp.'), xlabel('Samples'),ylabel('Phase [rad]')
-                    case 2
-                        plot(abs(temp).'), xlabel('Samples'),ylabel('Magntiude [a.u.]')   
-                    case 3
-                        plot(temp.'), xlabel('Samples'),ylabel('k-space')
-                    case 4
-                        stairs(squeeze(Data).'), xlabel('Dynamics and interleaves'),ylabel('Bfit')
-                    case 5
-                        stairs(squeeze(Data).'), xlabel('Dynamics and interleaves'),ylabel('Gfit')   
-                end
-                drawnow
+                % switch (FID.RemotePort-PortBase)
+                %     case 1
+                %         plot(temp.'), xlabel('Samples'),ylabel('Phase [rad]')
+                %     case 2
+                %         plot(abs(temp).'), xlabel('Samples'),ylabel('Magntiude [a.u.]')   
+                %     case 3
+                %         plot(temp.'), xlabel('Samples'),ylabel('k-space')
+                %     case 4
+                %         stairs(squeeze(Data).'), xlabel('Dynamics and interleaves'),ylabel('Bfit')
+                %     case 5
+                %         stairs(squeeze(Data).'), xlabel('Dynamics and interleaves'),ylabel('Gfit')   
+                % end
+                % drawnow
                 
                 % Increment for next reception
                 cBlock = cBlock+1;
@@ -88,7 +88,7 @@ while ~Terminate
                 disp(Status)
 
             case 'T'
-                disp('All data received')
+                %disp('All data received')
                 Terminate = true;  
                 
             otherwise

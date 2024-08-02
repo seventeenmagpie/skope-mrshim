@@ -79,3 +79,4 @@ real_python_network_examples/
 /sinope_mimic/.vs
 manuals/
 py-shimmer/
+*.asv

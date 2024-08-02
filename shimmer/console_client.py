@@ -26,8 +26,16 @@ class CommandPrompt(Client):
 
         command_tokens = parser.parse(command_string)
 
-        if command_tokens[0] == "relay":
-            action = "relay"
+        if command_tokens[0][0] == "!":
+            self.handle_command(command_string[1:])
+            self._set_selector_mode('r')
+            return 1
+        else:
+            if command_tokens[0] == "relay":
+                action = "relay"
+            else:
+                action = "command"
+
             try:
                 self.logger.debug(f"attempting to create request.")
                 self.logger.debug(f"command tokens are {command_tokens}")
@@ -43,15 +51,6 @@ class CommandPrompt(Client):
             except IndexError:
                 print('Usage: relay <to name> "<content>"')
                 return 1
-        elif command_tokens[0][0] == "!":
-            self.handle_command(command_string[1:])
-            self._set_selector_mode('r')
-            return 1
-        else:
-            action = "command"
-            value = {"to": "server", "from": self.name, "content": command_string}
-            request = self.create_request(action, value)
-            self.send_request(request)
         return 2
 
     def process_events(self, mask):
@@ -74,21 +73,15 @@ class CommandPrompt(Client):
             self.logger.debug("detected in relay section")
             return dict(
                 type="relay",
-                encoding="utf-8",
                 content=value,
             )
         elif action == "command":
             return dict(
                 type="command",
-                encoding="utf-8",
                 content=value,
             )
         else:
-            return dict(
-                type="binary/custom-client-binary-type",
-                encoding="binary",
-                content=bytes(action + value, encoding="utf-8"),
-            )
+            pass  # action is always one of either relay or command. is set by code.
  
     def handle_command(self, command_string):
         command_tokens = parser.parse(command_string)
@@ -96,6 +89,10 @@ class CommandPrompt(Client):
         if command_tokens[0] == "egg":
             print(f"Dogs can't operate MRI scanners... \a")
             print(f"But cats can!")
+        elif command_tokens[0] == "reader":
+            message = self.selector.get_key(self.socket).data
+            self.selector.modify(self.socket, selectors.EVENT_READ, data=message)
+            
         super().handle_command(command_string)
 
 

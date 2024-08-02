@@ -106,31 +106,30 @@ class Message:
                         self.close()
                         raise ClientDisconnect(self.addr)
 
-    def _json_encode(self, obj, encoding):
+    def _json_encode(self, obj):
         """Encode json data into bytes (to send down the wire)."""
-        return json.dumps(obj, ensure_ascii=False).encode(encoding)
+        return json.dumps(obj, ensure_ascii=False).encode("utf-8")
 
-    def _json_decode(self, json_bytes, encoding):
+    def _json_decode(self, json_bytes):
         """Decode bytes (from the wire) into json data."""
-        tiow = io.TextIOWrapper(io.BytesIO(json_bytes), encoding=encoding, newline="")
+        tiow = io.TextIOWrapper(io.BytesIO(json_bytes), encoding="utf-8", newline="")
         obj = json.load(tiow)
         tiow.close()
         return obj
 
     def _create_message(
-        self, optional_header=None, *, content_bytes, content_type, content_encoding
+        self, optional_header=None, *, content_bytes, content_type 
     ):
         """Assemble the bytes representing the message that we will send down the wire."""
         # assemble jsonheader
         jsonheader = {
             "byteorder": sys.byteorder,
             "content-type": content_type,
-            "content-encoding": content_encoding,
             "content-length": len(content_bytes),
         }
         jsonheader.update(optional_header)
         self.server.logger.info(f"jsonheader is {jsonheader}")
-        jsonheader_bytes = self._json_encode(jsonheader, "utf-8")
+        jsonheader_bytes = self._json_encode(jsonheader)
 
         # get protoheader (length of jsonheader)
         message_hdr = struct.pack(">H", len(jsonheader_bytes))
@@ -138,7 +137,6 @@ class Message:
         return message
 
     def _create_response_json_content(self):
-        # TODO: always assume utf-8 encoding. we don't need to support alternatives.
         """Generate the json response that we'll send back to the client."""
         if self.jsonheader["content-type"] == "command":
             command = self.request
@@ -162,23 +160,11 @@ class Message:
                 "result": f"Error: invalid type '{self.jsonheader['content-type']}'."
             }
 
-        content_encoding = "utf-8"
         response = {
-            "content_bytes": self._json_encode(content, content_encoding),
-            "content_type": response_type,
-            "content_encoding": content_encoding,
+            "content_bytes": self._json_encode(content),
+            "content_type": response_type, 
         }
 
-        return response
-
-    # TODO: remove binary packets. we don't need them.
-    def _create_response_binary_content(self):
-        """Generate a binary response that we'll send back to the client."""
-        response = {
-            "content_bytes": b"First 10 bytes of request: " + self.request[:10],
-            "content_type": "binary/custom-server-binary-type",
-            "content_encoding": "binary",
-        }
         return response
 
     def process_events(self, mask):
@@ -242,7 +228,7 @@ class Message:
         """Process the jsonheader to find out information about the content."""
         hdrlen = self._jsonheader_len
         if len(self._recv_buffer) >= hdrlen:  # enough data has been sent in.
-            self.jsonheader = self._json_decode(self._recv_buffer[:hdrlen], "utf-8")
+            self.jsonheader = self._json_decode(self._recv_buffer[:hdrlen])
             self._recv_buffer = self._recv_buffer[
                 hdrlen:
             ]  # remove from buffer so we don't read it again.
@@ -250,7 +236,6 @@ class Message:
                 "byteorder",
                 "content-length",
                 "content-type",
-                "content-encoding",
             ):  # check we have everything.
                 if reqhdr not in self.jsonheader:
                     raise ValueError(f"Missing required header '{reqhdr}'.")
@@ -278,8 +263,7 @@ class Message:
 
         # if a decodeable content type, decode it
         if self.jsonheader["content-type"] in ("text/json", "command", "relay"):
-            encoding = self.jsonheader["content-encoding"]
-            self.request = self._json_decode(data, encoding)
+            self.request = self._json_decode(data)
 
         if self.jsonheader["content-type"] == "text/json":
             self.server.logger.info(f"Received request {self.request!r} from {self.addr}")
@@ -319,22 +303,18 @@ class Message:
     def create_response(self):
         """Decide which type of response we send back to the client and add it to the send buffer."""
         optional_header_parts = {}
-        if self.jsonheader["content-type"] == "text/json":
+        request_content_type = self.jsonheader["content-type"]
+        if request_content_type in ("text/json", "command", "relay"):
             response = self._create_response_json_content()
-        elif self.jsonheader["content-type"] == "command":
-            optional_header_parts = {
-                "to": self.jsonheader["to"],
-                "from": self.jsonheader["from"],
-            }
-            response = self._create_response_json_content()
-        elif self.jsonheader["content-type"] == "relay":
-            optional_header_parts = {
-                "to": self.jsonheader["to"],
-                "from": self.jsonheader["from"],
-            }
-            response = self._create_response_json_content()
-        else:
+        else: 
             response = self._create_response_binary_content()
+
+        if request_content_type in ("command", "relay"):
+            optional_header_parts = {
+                "to": self.jsonheader["to"],
+                "from": self.jsonheader["from"],
+            }
+
         self.server.logger.debug(f"created response is {response}")
         message = self._create_message(optional_header_parts, **response)
         self.response_created = True

@@ -61,7 +61,6 @@ class Client:
         # with an empty request
         empty_request = dict(
             type="command",
-            encoding="utf-8",
             content={
                 "to": "server",
                 "from": self.name,

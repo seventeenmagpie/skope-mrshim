@@ -86,32 +86,30 @@ class Message:
             else:
                 self._send_buffer = self._send_buffer[sent:]
 
-    def _json_encode(self, obj, encoding):
+    def _json_encode(self, obj):
         """Encodes json into bytes."""
-        return json.dumps(obj, ensure_ascii=False).encode(encoding)
+        return json.dumps(obj, ensure_ascii=False).encode("utf-8")
 
-    def _json_decode(self, json_bytes, encoding):
+    def _json_decode(self, json_bytes):
         """Decodes bytes into a json object."""
-        tiow = io.TextIOWrapper(io.BytesIO(json_bytes), encoding=encoding, newline="")
+        tiow = io.TextIOWrapper(io.BytesIO(json_bytes), encoding="utf-8", newline="")
         obj = json.load(tiow)
         tiow.close()
         return obj
 
     def _create_message(
-        self, optional_header=None, *, content_bytes, content_type, content_encoding
+        self, optional_header=None, *, content_bytes, content_type
     ):
         """Create the bytes of message that are sent down the wire."""
-        # TODO: always assume utf-8 encoding
         jsonheader = {
             "byteorder": sys.byteorder,
             "content-type": content_type,
-            "content-encoding": content_encoding,
             "content-length": len(content_bytes),
         }
 
         jsonheader.update(optional_header)
 
-        jsonheader_bytes = self._json_encode(jsonheader, "utf-8")
+        jsonheader_bytes = self._json_encode(jsonheader)
         message_hdr = struct.pack(">H", len(jsonheader_bytes))
         message = message_hdr + jsonheader_bytes + content_bytes
         return message
@@ -122,16 +120,15 @@ class Message:
         result = content.get("result")
         self.client.logger.info(f"Got result: {result}")
         print(result)
-
+        
+        # when a disconnect command is sent,
+        # the server sends a disconnect response
+        # and then removes the client from itself.
+        # once the client recieves this respnse,
+        # it is safe for the client to remove the server.
         if result == "disconnect":  # special case for the disconnect command.
             self.client.logger.debug("raising client disconnect")
             raise ClientDisconnect
-
-    def _process_response_binary_content(self):
-        """Process a binary response."""
-        # TODO: remove binary content stuff. we don't need it.
-        content = self.response
-        self.client.logger.info(f"Got response: {content!r}")
 
     def process_events(self, mask):
         """Use selector state to start read or write.
@@ -200,22 +197,19 @@ class Message:
         """Create a request to put in the buffer, ready to be sent next time the selector mask is 'r'."""
         content = self.request["content"]
         content_type = self.request["type"]
-        content_encoding = self.request["encoding"]
         optional_header_parts = {}
-        # TODO: remove unneeded request types.
+        
         if content_type == "text/json":
             req = {
-                "content_bytes": self._json_encode(content, content_encoding),
+                "content_bytes": self._json_encode(content),
                 "content_type": content_type,
-                "content_encoding": content_encoding,
             }
-        elif content_type == "command":
+        elif content_type in ("command", "relay"):
             req = {
                 "content_bytes": self._json_encode(
-                    content["content"], content_encoding
+                    content["content"]
                 ),
                 "content_type": content_type,
-                "content_encoding": content_encoding,
             }
 
             optional_header_parts = {
@@ -223,32 +217,12 @@ class Message:
                 "from": content["from"],
             }
 
-            if content["content"] == "!reader":
-                # if reader is called we need to read from the socket
-                # rather than send something
-                self._set_selector_events_mask("r")
-                return
-        elif content_type == "relay":
-            req = {
-                "content_bytes": self._json_encode(
-                    content["content"], content_encoding
-                ),
-                "content_type": content_type,
-                "content_encoding": content_encoding,
-            }
-
-            optional_header_parts = {
-                "to": content["to"],
-                "from": content["from"],
-            }
-
-            self.is_relay = True
+            if content_type == "relay":
+                self.is_relay=True
         else:
-            req = {
-                "content_bytes": content,
-                "content_type": content_type,
-                "content_encoding": content_encoding,
-            }
+            server.logger.warn(f"Invalid request type {content_type} recieved.")
+            return  # do not attempt to create a message.
+
         message = self._create_message(optional_header_parts, **req)
         self._send_buffer += message
         self._request_queued = True
@@ -267,13 +241,12 @@ class Message:
         hdrlen = self._jsonheader_len
 
         if len(self._recv_buffer) >= hdrlen:  # if we have recieved enough data
-            self.jsonheader = self._json_decode(self._recv_buffer[:hdrlen], "utf-8")
+            self.jsonheader = self._json_decode(self._recv_buffer[:hdrlen])
             self._recv_buffer = self._recv_buffer[hdrlen:]  # remove from buffer.
             for reqhdr in (
                 "byteorder",
                 "content-length",
                 "content-type",
-                "content-encoding",
             ):  # check we have all the neccessary parts.
                 if reqhdr not in self.jsonheader:
                     raise ValueError(f"Missing required header '{reqhdr}'.")
@@ -289,31 +262,25 @@ class Message:
         self._recv_buffer = self._recv_buffer[content_len:]  # remove from buffer
 
         if self.jsonheader["content-type"] in ("command", "text/json", "relay"):
-            encoding = self.jsonheader["content-encoding"]
-            self.response = self._json_decode(data, encoding)
+            self.response = self._json_decode(data)
             self.client.logger.debug(f"Decoded response from server is {self.response}")
+            self._process_response_json_content()
 
         if self.jsonheader["content-type"] == "relay":
             # a relay command is a command sent from another client.
             if self.response["result"][0] == "!":  # client commands start with a bang!
                 self.client.handle_command(self.response["result"][1:])
-            else:
-                self._process_response_json_content()
-        elif self.jsonheader["content-type"] == "command":
-            self._process_response_json_content()
-        elif self.jsonheader["content-type"] == "text/json":
+        elif self.jsonheader["content-type"] in ("text/json", "command"):
             self.client.logger.info(
                 f"Received response {self.response!r} from {self.addr}"
             )
-            self._process_response_json_content()
         else:
             # Binary or unknown content-type
-            # TODO: do not process binary data, just complain about it.
             self.response = data
             self.client.logger.info(
                 f"Received {self.jsonheader['content-type']} "
                 f"response from {self.addr}"
             )
-            self._process_response_binary_content()
-
+            self.client.logger.warn(f"Recieved packet with unknown type.")
+            
         self._clear()

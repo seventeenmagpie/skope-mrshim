@@ -89,6 +89,7 @@ class ShimmingServer:
 
     def accept_wrapper(self, sock):
         """Accept a new client's connection."""
+        self.logger.debug(f"Attempting to accept a new connection from {sock}")
         conn, addr = sock.accept()  # new socket for the client.
         print(f"Accepted connection from {addr}")
         conn.setblocking(False)

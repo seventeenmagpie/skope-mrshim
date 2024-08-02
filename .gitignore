@@ -77,3 +77,5 @@ real_python_network_examples/
 **/logs/
 /.vs
 /sinope_mimic/.vs
+manuals/
+py-shimmer/

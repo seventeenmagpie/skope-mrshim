@@ -6,7 +6,7 @@ import sys
 
 import libraries.registry as registry
 from .parser import parse
-from .exceptions import CommandRecieved, ClientDisconnect
+from .exceptions import ClientDisconnect
 
 class Message:
     def __init__(self, selector, sock, addr, server):
@@ -68,7 +68,7 @@ class Message:
         self.response_created = False
 
         # after we send something, we should be ready to listen again.
-        # this appears twice because during relayi
+        # this appears twice because during relaying
         # the new destination socket is set to write, so we need to put that back
         # onto read
         # then retrieve the original socket
@@ -144,17 +144,9 @@ class Message:
             content = {"result": f"Command {command_tokens[0]} recieved by server."}
             response_type = "command"
 
-            # generate the response message if we are disconnected
-            if self.disconnect:
-                self.server.logger.debug("creating disconnect response")
-                content = {"result": f"disconnect"}
-
         elif self.jsonheader["content-type"] == "relay":
             content = {"result": self.request}
             response_type = "relay"
-        elif self.jsonheader["content-type"] == "start":
-            content = {"result": "connection confirmed"}
-            response_type = "text/json"
         else:
             content = {
                 "result": f"Error: invalid type '{self.jsonheader['content-type']}'."
@@ -283,7 +275,9 @@ class Message:
             command_tokens = parse(command)
 
             if command_tokens[0] == "disconnect":
-                self.disconnect = True
+                # print disconnecting client message here.
+                print(f"Disconnecting client {registry.get_name_from_address(self.addr)}")
+                self.disconnect = True  # flag so we send the disconnect response.
 
         elif self.jsonheader["content-type"] == "relay":
             # we don't need to do anything to the message content, just pass it on
@@ -313,6 +307,17 @@ class Message:
             optional_header_parts = {
                 "to": self.jsonheader["to"],
                 "from": self.jsonheader["from"],
+            }
+
+        # when a client asks to disconnect, we need to acknowledge and then tell it to.
+        if self.disconnect:
+            self.server.logger.debug("creating disconnect response")
+            response_type = "relay"
+            content = {"result": f"!server_disconnect"}
+
+            response = {
+                "content_bytes": self._json_encode(content),
+                "content_type": response_type, 
             }
 
         self.server.logger.debug(f"created response is {response}")

@@ -172,7 +172,5 @@ try:
         sinope.main_loop()
 except KeyboardInterrupt:
     print("Detected keyboard interrupt. Closing program.")
-finally:
     sinope.close()
-    sinope.selector.close()
-    sys.exit(0)
+

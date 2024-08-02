@@ -33,19 +33,26 @@ class CommandPrompt(Client):
         else:
             if command_tokens[0] == "relay":
                 action = "relay"
-            else:
-                action = "command"
-
-            try:
-                self.logger.debug(f"attempting to create request.")
-                self.logger.debug(f"command tokens are {command_tokens}")
-                request = self.create_request(
-                    action,
-                    {
+                packet = {
                         "to": command_tokens[1],
                         "from": self.name,
                         "content": command_tokens[2],
-                    },
+                    }
+            else:
+                action = "command"
+                packet = {
+                        "to": "server",
+                        "from": self.name,
+                        "content": command_tokens[0],
+                    }
+                # NOTE: all server commands (currently) have zero arguments. is this appropriate?
+
+            try:
+                self.logger.debug(f"Attempting to create request.")
+                self.logger.debug(f"Command tokens are {command_tokens}")
+                request = self.create_request(
+                    action,
+                    packet,
                 )
                 self.send_request(request)
             except IndexError:
@@ -107,7 +114,6 @@ name = "console" + str(console_number)
 
 # create and register the command prompt.
 prompt = CommandPrompt(name)
-# prompt.selector.register(prompt.descriptor_socket, selectors.EVENT_WRITE, data=prompt)
 
 debugging = False
 
@@ -116,7 +122,4 @@ try:
         prompt.main_loop()
 except KeyboardInterrupt:
     print("Exiting program!")
-finally:
     prompt.close()
-    prompt.selector.close()
-    sys.exit(0)

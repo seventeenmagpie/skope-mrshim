@@ -5,7 +5,6 @@ import struct
 import sys
 import logging
 
-from libraries.exceptions import ClientDisconnect, CommandRecieved
 from libraries.parser import parse
 
 
@@ -120,15 +119,7 @@ class Message:
         result = content.get("result")
         self.client.logger.info(f"Got result: {result}")
         print(result)
-        
-        # when a disconnect command is sent,
-        # the server sends a disconnect response
-        # and then removes the client from itself.
-        # once the client recieves this respnse,
-        # it is safe for the client to remove the server.
-        if result == "disconnect":  # special case for the disconnect command.
-            self.client.logger.debug("raising client disconnect")
-            raise ClientDisconnect
+
 
     def process_events(self, mask):
         """Use selector state to start read or write.
@@ -270,6 +261,23 @@ class Message:
             # a relay command is a command sent from another client.
             if self.response["result"][0] == "!":  # client commands start with a bang!
                 self.client.handle_command(self.response["result"][1:])
+            else:
+                # it's a server command, we know how to send those!
+                # implemented manually because not all clients have a command_send method
+                action = "command"
+                packet = {
+                        "to": "server",
+                        "from": self.client.name,
+                        "content": self.response["result"],
+                    }
+                request = self.client.create_request(
+                    action,
+                    packet,
+                )
+                self.client.send_request(request)
+                # skip reading a command in.
+                self.write()
+                return
         elif self.jsonheader["content-type"] in ("text/json", "command"):
             self.client.logger.info(
                 f"Received response {self.response!r} from {self.addr}"

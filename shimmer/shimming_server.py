@@ -10,7 +10,7 @@ import logging
 import libraries.registry as reg
 from libraries.parser import parse
 from libraries.server_packets import Message
-from libraries.exceptions import CommandRecieved, ClientDisconnect
+from libraries.exceptions import ClientDisconnect
 from libraries.printers import selector_printer
 
 class ModelClient:
@@ -75,11 +75,7 @@ class ShimmingServer:
     def handle_command(self, command_string):
         """Handle a the command part of a 'command' type packet."""
         command_tokens = parse(command_string)
-        if command_tokens[0] == "halt":
-            print("Halting server")
-            self.running = False
-            # TODO: send disconnect relays to all connected clients
-        elif command_tokens[0] == "list":
+        if command_tokens[0] == "list":
             print("Listing connected clients:")
             for name, client in reg.clients_on_registry.items():
                 print(f" - {name}({client.id}) @ {client.addr[0]}:{client.addr[1]},")
@@ -107,6 +103,10 @@ class ShimmingServer:
             if (addr[0] == reg_address[0]) and (addr[1] == reg_address[1]): 
                 name_assigned = True
                 break  # role = the current role
+        
+        if not name_assigned:
+            print(f"An uknown client at {addr} just connect.")
+            role = "unknown"
 
         print(f"{role} just connected.")
         # create a GenericClient object for keeping track of who is connected.
@@ -146,13 +146,28 @@ class ShimmingServer:
                             del client
                             break
                     del reg.clients_on_registry[name]
-                    # BUG: server seems to hang on disconnect. check status of selector.
+                    # BUG: server seems to hang on disconnect. check status of selector. Windows only?
+                except RuntimeError:
+                    pass
+                    print("Client disconnected suddenly.")
+                    # client probably just ctrl-c'd
+                    self.current_message.close()
                 except Exception:
                     print(
                         f"Main: Error: Exception for {self.current_message.addr}:\n"
                         f"{traceback.format_exc()}"
                     )
                     self.current_message.close()
+
+    def stop(self):
+        # TODO: send disconnect relays to all connected clients
+        # i think this is quite hard.
+        # should be able to iterate over the selector and send down each message one at time
+        # but it isn't working like that xD
+        self.lsock.close()
+        self.sel.close()
+
+
 
 
 if len(sys.argv) != 1:
@@ -167,7 +182,6 @@ try:
         server.main_loop()
 except KeyboardInterrupt:
     print("Caught keyboard interrupt, exiting")
+    server.stop()
 finally:
-    server.lsock.close()
-    server.sel.close()
     print("Have a nice day :) - mags")

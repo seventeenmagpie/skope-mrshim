@@ -43,8 +43,6 @@ class Client:
             events = selectors.EVENT_READ | selectors.EVENT_WRITE
         else:
             raise ValueError(f"Invalid events mask mode {mode!r}.")
-        # zero is the selector corresponding to this client object
-        # self.selector.modify(self.descriptor_socket, events, data=self)
 
     def start_connection(self):
         """Try and make a connection to the server, add this socket to the selector."""
@@ -84,13 +82,17 @@ class Client:
         self.logger.debug(f"That request is {message.request}")
 
     def handle_command(self, command_string):
-        """Should be overridden by child class."""
-        # TODO: add a command here so that if we get a disconnect on relay its the same as a !disconnect.
+        """Should be overridden by child class.
+
+        Leading exclamation mark is removed in packet code, before calling."""
         self.logger.info(f"Client {self.name} is handling command: {command_string}")
         command_tokens = parse(command_string)
         try:
             if command_tokens[0] == "echo":
                 print(f"{' '.join(command_tokens[1:])}")
+            elif command_tokens[0] == "server_disconnect":
+                self.logger.info("Recieved disconnect command from server.")
+                self.close()
         except IndexError:
             print(
                 f"Incorrect number of arguments for command {command_tokens[0]}. Look up correct usage in manual."
@@ -130,10 +132,6 @@ class Client:
             message = key.data
             try:
                 message.process_events(mask)
-            except ClientDisconnect:
-                print("Disconnected from server.")
-                message.close()
-                raise KeyboardInterrupt  # to exit the rest of the program.
             except Exception:
                 print(
                     f"Main: Error: Exception for {message.addr}:\n"
@@ -142,11 +140,13 @@ class Client:
                 message.close()
 
     def close(self):
-        try:
+        try:  # because of outer exception handling, this can get called twice and cause weirdness.
             message = self.selector.get_key(self.socket).data
             message.close()
         except:
-            print("Unable to close message.")
-            print("You may need to restart shimmer to restore correct behaviour.")
-
-        print(f"Closed {self.name} client. Goodbye \\o")
+            pass
+        finally:
+            self.selector.close()
+            print(f"Closed {self.name} client. Goodbye \\o")
+            sys.exit(0)
+        

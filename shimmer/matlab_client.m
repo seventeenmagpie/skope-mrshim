@@ -77,7 +77,7 @@ scan_metadata=AqSysData(data_folder, scan_id);
 positions=scan_metadata.probePositions;
 
 %% produce mask from field map
-[img, ~] = rec_read_sjm([data_folder, 'field_map_jul_08']);
+[img, ~] = rec_read_sjm([data_folder, 'field_map']);
 dimensions=size(img);
 magnitude=squeeze(img(:, :, :, 1,1));
 field_map = squeeze(img(:, :, :,2,2 ));

@@ -3,6 +3,6 @@ Good idea to clear this out routinely.
 I haven't automated the clearing because I figure you might want the files for offline use.
 
 Shimmer needs the following data files to operate:
- - A .scan file for probe positions and offsets,
- - A field map (.PAR/.REC) with a magnitude image from which to make a mask,
+ - A .scan file for probe positions and offsets, ensure the scanid in the matlab matches the number at the start of the filename.
+ - A field map (.PAR/.REC) with a magnitude image from which to make a mask, named field_map.PAR/field_map.REC
  - A coils_tmp.npy from Arche on the MRShim laptop made using the field map,

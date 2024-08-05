@@ -139,7 +139,7 @@ class ShimmingServer:
                 # during processing, one of the folliwng special exceptions may arise.
                 except ClientDisconnect as disconnected_address:
                     self._remove_from_registry(disconnected_address)
-                except RuntimeError as disconnected_address:
+                except (RuntimeError, ConnectionResetError) as disconnected_address:
                     print("Client disconnected suddenly.")
                     self._remove_from_registry(disconnected_address)
                     # client probably just ctrl-c'd

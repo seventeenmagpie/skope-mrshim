@@ -106,7 +106,7 @@ class ShimmingServer:
                 break  # role = the current role
 
         if not name_assigned:
-            print(f"An uknown client at {addr} just connect.")
+            print(f"An uknown client at {addr} just connected.")
             role = "unknown"
 
         print(f"{role} just connected.")
@@ -119,7 +119,7 @@ class ShimmingServer:
         self.sel.register(conn, selectors.EVENT_READ, data=message)
 
     def main_loop(self):
-        """Choose the socket to send/recieve on and do that. Catch commands and disconnects."""
+        """Choose the socket to send/recieve on and do that."""
         events = self.sel.select(timeout=None)  # set of waiting io
 
         if self.debugging:
@@ -136,13 +136,11 @@ class ShimmingServer:
                 self.current_message = key.data
                 try:
                     self.current_message.process_events(mask)
-                # during processing, one of the folliwng special exceptions may arise.
-                except ClientDisconnect as disconnected_address:
+                # during processing, a client may disconnect.
+                # we should handle that nicely
+                except (RuntimeError, ConnectionResetError, ClientDisconnect) as disconnected_address:
+                    print("Client disconnected.")
                     self._remove_from_registry(disconnected_address)
-                except (RuntimeError, ConnectionResetError) as disconnected_address:
-                    print("Client disconnected suddenly.")
-                    self._remove_from_registry(disconnected_address)
-                    # client probably just ctrl-c'd
                     self.current_message.close()
                 except Exception:
                     print(
@@ -156,6 +154,7 @@ class ShimmingServer:
             self.stop()
 
     def _remove_from_registry(self, address):
+        """Removes a client from the connected clients registry and deletes its model object."""
         self.logger.debug("Started removing client.")
         for name, client in reg.clients_on_registry.items():
             if str(client.addr) == str(address):

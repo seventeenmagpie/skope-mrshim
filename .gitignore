@@ -65,11 +65,14 @@ dkms.conf
 *.user
 *.ipch
 
-# documentation and data files
-*.txt
-*.md
+# data files
 *.log
 *.pyc
+*.npy
+*.PAR
+*.REC
+*.raw
+*.scan
 
 # some example files i was learning from
 real_python_network_examples/
@@ -80,3 +83,6 @@ real_python_network_examples/
 manuals/
 py-shimmer/
 *.asv
+
+license.txt
+shims.txt

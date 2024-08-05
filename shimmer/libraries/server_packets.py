@@ -99,9 +99,9 @@ class Message:
                 if sent and not self._send_buffer:
                     # print("sent and send buffer empty")
                     self._clear()
-                    if self.disconnect:
-                        self.close()
+                    if self.disconnect: 
                         raise ClientDisconnect(self.addr)
+                        # server closes packet for us, after removing this client from the registry
 
     def _json_encode(self, obj):
         """Encode json data into bytes (to send down the wire)."""

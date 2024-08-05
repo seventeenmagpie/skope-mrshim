@@ -5,7 +5,7 @@ clc;
 % COMMENT OUT THE INCORRECT LINES
 % SET PATH TO SHIMMER DIRECTORY
 % ON MAGS' LAPTOP
-shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrshim/shimmer';
+shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrshim/shimmer/';
 
 % ON SKOPE COMPUTER
 %shimmer_directory = 'C:/Users/skope/Documents/shimmer/';
@@ -14,8 +14,8 @@ shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrs
 %shimmer_directory = N/A;
 
 % add libraries to matlab path.
-addpath([shimmer_directory, '/libraries/'])
-addpath([shimmer_directory, '/libraries/methods/']);
+addpath([shimmer_directory, 'libraries/'])
+addpath([shimmer_directory, 'libraries/methods/']);
 data_folder = [shimmer_directory , 'data/'];
 skope_temp = [shimmer_directory, 'data/skope_tmp'];
 
@@ -72,7 +72,7 @@ client.start_connection()
 
 %% get probe positions
 % steps repeated from RBowtell's code
-scan_id = 5;
+scan_id = 6;
 scan_metadata=AqSysData(data_folder, scan_id);
 positions=scan_metadata.probePositions;
 
@@ -95,43 +95,38 @@ coil = reshape(coil, 24, 64, 64, 45);  % field per unit current per coordinate
 % make a coordidate grid based on the mask
 mask_size = size(mask);
 resolution = 3e-3;
-resolution_z = 3.3e-3;
+z_resolution = 3.3e-3;
 
-% TODO: rewrite using linspace/meshgrid
-% this is just copied from Richard's script.
 % integer index coordinates for each voxel
-x=(-mask_size(1)/2):(mask_size(1)/2-1);
-y=(-mask_size(2)/2):(mask_size(2)/2-1);
-z=(-mask_size(3)/2):(mask_size(3)/2-1);
+x=resolution*(-mask_size(1)/2):(mask_size(1)/2-1);
+y=resolution*(-mask_size(2)/2):(mask_size(2)/2-1);
+z=z_resolution*(-mask_size(3)/2):(mask_size(3)/2-1);
 
-% image space coordinates for each voxel
-X=resolution*repmat(reshape(x,[mask_size(1) 1 1]),[1 mask_size(2) mask_size(3)]);
-Y=resolution*repmat(reshape(y,[1 mask_size(2) 1]),[mask_size(1) 1 mask_size(3)]);
-Z=resolution_z*repmat(reshape(z,[1 1 mask_size(3)]),[mask_size(1) mask_size(2) 1]);
+% imagespace coordinate grid
+% NOTE: using meshgrid puts X and Y the other way around.
+% not sure what that is about but this way is consistent with the rest of
+% Richard's code.
+[X, Y, Z] = ndgrid(x, y, z);
 
 % image space coordinates inside the masked region
 X1 = X(mask > 0);
 Y1 = Y(mask > 0); 
 Z1 = Z(mask > 0);
 
-% coil effect inside the masked region
-% and unwrap the coil effect matrix (not sure why)
-% TODO: ask richard why
+% takes the coil effect inside the masked region and unrolls it
+% this is because lsqr only works on 2d
 for i = 1:NUMBER_COIL_CHANNELS
-    coil_squeezed = squeeze(coil(i, :, :, :));
+    coil_squeezed = squeeze(coil(i, :, :, :));  % the effect of one of the 24 coils
     coil_unrolled(i, :) = coil_squeezed(mask > 0);
 end
 
-% TODO: work out what this does exactly
-targets=[ones(size(X1)), Z1, X1, Y1];
-idx = 0;
-coil_coefficients = zeros([24, 4])';
+targets=[ones(size(X1)), Z1, X1, Y1];  % the low dimensional spherical harmonics
+idx = 0;  % a counter
+coil_coefficients = zeros([24, 4])';  % to store the coefficients
 
 for target = targets 
     idx = idx + 1;
-    % how much of each coil we need to create a particular spharm field?
-    % because we only do this once, we can afford more than 20
-    % iterations to reach a low tolerance
+    % how much of each coil we need to create a particular spharm field
     coil_coefficients(idx, :) = lsqr(coil_unrolled', target, [], 50);
 end
 

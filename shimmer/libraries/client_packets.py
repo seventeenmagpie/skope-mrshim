@@ -139,7 +139,7 @@ class Message:
             self.write()
 
     def read(self):
-        """Read and start processing of message."""
+        """Read and sequence processing of message."""
         self._read()
 
         if self._jsonheader_len is None:

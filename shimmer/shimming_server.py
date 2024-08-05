@@ -43,6 +43,7 @@ class ShimmingServer:
         )
 
         self.debugging = reg.registry['server'].getboolean('debug')
+        self.halting = False
 
         if self.debugging:
             print("Debugging mode enabled.")
@@ -83,6 +84,8 @@ class ShimmingServer:
             print(
                 f"Server {'is' if self.running else 'is not'} running."
             )
+        elif command_tokens[0] == "halt":
+            self.stop()
 
     def accept_wrapper(self, sock):
         """Accept a new client's connection."""
@@ -136,19 +139,12 @@ class ShimmingServer:
                 try:
                     self.current_message.process_events(mask)
                 # during processing, one of the folliwng special exceptions may arise.
-                except ClientDisconnect as disconnect_addr:
+                except ClientDisconnect as disconnect_address:
                     # remove from internal list of clients
-                    for name, client in reg.clients_on_registry.items():
-                        if str(client.addr) == str(disconnect_addr):
-                            print(
-                                f"Removed client {client.name} which was at {client.addr}"
-                            )
-                            del client
-                            break
-                    del reg.clients_on_registry[name]
+                    self._remove_from_registry(disconnect_address)
                     # BUG: server seems to hang on disconnect. check status of selector. Windows only?
                 except RuntimeError:
-                    pass
+                    # TODO: delete this client from the registry also (ie, get the address)
                     print("Client disconnected suddenly.")
                     # client probably just ctrl-c'd
                     self.current_message.close()
@@ -159,16 +155,40 @@ class ShimmingServer:
                     )
                     self.current_message.close()
 
+        if self.halting:
+            self.stop()
+
+    def _remove_from_registry(self, address):
+        for name, client in reg.clients_on_registry.items():
+            if str(client.addr) == str(address):
+                print(
+                    f"Removed client {client.name} which was at {client.addr}"
+                )
+                del client
+                break
+        del reg.clients_on_registry[name]
+
+
     def stop(self):
-        # TODO: send disconnect relays to all connected clients
-        # i think this is quite hard.
-        # should be able to iterate over the selector and send down each message one at time
-        # but it isn't working like that xD
-        self.lsock.close()
-        self.sel.close()
+        # the first time this function is called, self.halting won't have been set.
+        self.halting = True
 
-
-
+        if reg.clients_on_registry:  # there are still clients online
+            # set them up for disconnect
+            for name, model_client in reg.clients_on_registry.items():
+                try:
+                    message = self.sel.get_key(model_client.socket).data
+                    message.disconnect = True
+                    message._set_selector_events_mask("w")
+                    print(f"Prepared {name} for disconnect.")
+                    print(f"{name} had data: {message}")
+                except Exception as e:
+                    print(f"Unable to close client {name}")
+                    print(e)
+        else:  # once we have disconnected everybody, then we can close
+            self.lsock.close()
+            self.sel.close()
+            self.running = False
 
 if len(sys.argv) != 1:
     print(f"Usage: {sys.argv[0]}")

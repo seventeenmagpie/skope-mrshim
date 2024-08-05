@@ -71,8 +71,10 @@ class Message:
         # this appears twice because during relaying
         # the new destination socket is set to write, so we need to put that back
         # onto read
-        # then retrieve the original socket
+        # *then* retrieve the original socket
         # and make sure that is on read too.
+        # NOTE: this doesn't seem to do anything
+        # TODO: check if this does anything
         self._set_selector_events_mask("r")
 
         if self.is_relayed_message:
@@ -81,6 +83,7 @@ class Message:
 
     def _write(self):
         """Write data to the socket."""
+        self.server.logger.debug("_write")
         if self._send_buffer:
             try:
                 # Should be ready to write
@@ -161,6 +164,7 @@ class Message:
 
     def process_events(self, mask):
         """Read or write depending on state of socket."""
+        self.server.logger.debug(f"process_events called, self.disconnect is {self.disconnect}")
         if mask & selectors.EVENT_READ:
             self.read()
         if mask & selectors.EVENT_WRITE:
@@ -168,6 +172,7 @@ class Message:
 
     def read(self):
         """Reads from socket, then processes data as it comes."""
+        self.server.logger.debug("read")
         self._read()
         if self._jsonheader_len is None:
             self.process_protoheader()
@@ -182,7 +187,10 @@ class Message:
 
     def write(self):
         """Creates a response if neceserry then writes it to the socket."""
-        if self.request:
+        self.server.logger.debug("write")
+
+        # if we have halted, we will need to send responses to all clients, even those which haven't sent a request
+        if self.request or self.disconnect:
             self.server.logger.debug(f"self.request is {self.request}")
             if not self.response_created:
                 self.server.logger.debug("creating response")
@@ -297,18 +305,6 @@ class Message:
     def create_response(self):
         """Decide which type of response we send back to the client and add it to the send buffer."""
         optional_header_parts = {}
-        request_content_type = self.jsonheader["content-type"]
-        if request_content_type in ("text/json", "command", "relay"):
-            response = self._create_response_json_content()
-        else: 
-            response = self._create_response_binary_content()
-
-        if request_content_type in ("command", "relay"):
-            optional_header_parts = {
-                "to": self.jsonheader["to"],
-                "from": self.jsonheader["from"],
-            }
-
         # when a client asks to disconnect, we need to acknowledge and then tell it to.
         if self.disconnect:
             self.server.logger.debug("creating disconnect response")
@@ -319,7 +315,18 @@ class Message:
                 "content_bytes": self._json_encode(content),
                 "content_type": response_type, 
             }
+        elif self.jsonheader["content-type"] in ("text/json", "command", "relay"):
+            response = self._create_response_json_content()
 
+            if self.jsonheader["content-type"] in ("command", "relay"):
+                optional_header_parts = {
+                    "to": self.jsonheader["to"],
+                    "from": self.jsonheader["from"],
+                }
+        else: 
+            response = self._create_response_binary_content()
+
+           
         self.server.logger.debug(f"created response is {response}")
         message = self._create_message(optional_header_parts, **response)
         self.response_created = True

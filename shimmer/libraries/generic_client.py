@@ -2,6 +2,7 @@ import selectors
 import logging
 import socket
 import sys
+import traceback
 from libraries.registry import registry, get_address
 from libraries.client_packets import Message
 from libraries.parser import parse

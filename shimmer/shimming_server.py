@@ -13,6 +13,7 @@ from libraries.server_packets import Message
 from libraries.exceptions import ClientDisconnect
 from libraries.printers import selector_printer
 
+
 class ModelClient:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
 
@@ -31,7 +32,7 @@ class ShimmingServer:
         self.sel = selectors.DefaultSelector()
         self.last_used_id = 0
         self.id = 0
-        self.name = 'server'
+        self.name = "server"
 
         self.address = reg.get_address("server")
         self.host = self.address[0]
@@ -42,7 +43,7 @@ class ShimmingServer:
             filename="./logs/shimmer_server.log", level=logging.DEBUG, filemode="w"
         )
 
-        self.debugging = reg.registry['server'].getboolean('debug')
+        self.debugging = reg.registry["server"].getboolean("debug")
         self.halting = False
 
         if self.debugging:
@@ -81,9 +82,7 @@ class ShimmingServer:
             for name, client in reg.clients_on_registry.items():
                 print(f" - {name}({client.id}) @ {client.addr[0]}:{client.addr[1]},")
         elif command_tokens[0] == "status":
-            print(
-                f"Server {'is' if self.running else 'is not'} running."
-            )
+            print(f"Server {'is' if self.running else 'is not'} running.")
         elif command_tokens[0] == "halt":
             self.stop()
 
@@ -102,10 +101,10 @@ class ShimmingServer:
             reg_address = reg.get_address(role)
             name_assigned = False
 
-            if (addr[0] == reg_address[0]) and (addr[1] == reg_address[1]): 
+            if (addr[0] == reg_address[0]) and (addr[1] == reg_address[1]):
                 name_assigned = True
                 break  # role = the current role
-        
+
         if not name_assigned:
             print(f"An uknown client at {addr} just connect.")
             role = "unknown"
@@ -126,9 +125,6 @@ class ShimmingServer:
         if self.debugging:
             selector_printer(self.sel, events)
 
-        if self.halting:
-            self.stop()
-
         for key, mask in events:  # iterate through waiting sockets.
             # key is a NamedTuple with the socket number and data=message. mask is the io type.
             if key.data is None:  # this is a new socket, we should accept it.
@@ -142,10 +138,8 @@ class ShimmingServer:
                     self.current_message.process_events(mask)
                 # during processing, one of the folliwng special exceptions may arise.
                 except ClientDisconnect as disconnected_address:
-                    # remove from internal list of clients
                     self._remove_from_registry(disconnected_address)
-                    # BUG: server seems to hang on disconnect. check status of selector. Windows only?
-                except RuntimeError as disconnected_address: 
+                except RuntimeError as disconnected_address:
                     print("Client disconnected suddenly.")
                     self._remove_from_registry(disconnected_address)
                     # client probably just ctrl-c'd
@@ -157,20 +151,24 @@ class ShimmingServer:
                     )
                     self.current_message.close()
 
+        # after processing all the responses, see if we should stop.
+        if self.halting:
+            self.stop()
 
     def _remove_from_registry(self, address):
+        self.logger.debug("Started removing client.")
         for name, client in reg.clients_on_registry.items():
             if str(client.addr) == str(address):
-                print(
-                    f"Removed client {client.name} which was at {client.addr}"
-                )
+                print(f"Removed client {client.name} which was at {client.addr}")
                 del client
                 break
         del reg.clients_on_registry[name]
-
+        self.logger.debug("Finished removing client.")
 
     def stop(self):
         # the first time this function is called, self.halting won't have been set.
+        self.logger.debug("Inside self.stop()")
+        self.logger.debug(f"Clients remaining to remove are: {reg.clients_on_registry}")
         self.halting = True
 
         if reg.clients_on_registry:  # there are still clients online
@@ -186,9 +184,11 @@ class ShimmingServer:
                     print(f"Unable to close client {name}")
                     print(e)
         else:  # once we have disconnected everybody, then we can close
+            self.logger.debug("Closing server.")
             self.lsock.close()
             self.sel.close()
             self.running = False
+
 
 if len(sys.argv) != 1:
     print(f"Usage: {sys.argv[0]}")

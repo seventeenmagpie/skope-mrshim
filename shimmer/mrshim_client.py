@@ -119,14 +119,16 @@ class SinopeClient(Client):
         self.logger.debug(f"Recieved command tokens are {command_tokens}")
         try:
             if command_tokens[0] == "shim":
-                tile = [int(current_string)/1000 for current_string in command_tokens[1:]]  # the tile
-                flooring=[0 for _ in range(self.channel_number)]  # the empty floor
+                tile = [
+                    int(current_string) / 1000 for current_string in command_tokens[1:]
+                ]  # the tile
+                flooring = [0 for _ in range(self.channel_number)]  # the empty floor
 
-                # tiles the tile across the floor        
+                # tiles the tile across the floor
                 # i think this is very clever, which probably means it's wrong
                 for idx, _ in enumerate(flooring):
                     flooring[idx] = tile[idx % len(tile)]
-                
+
                 self.currents = flooring
                 self._set_selector_mode("w")
             elif command_tokens[0] == "start":
@@ -172,4 +174,3 @@ try:
 except KeyboardInterrupt:
     print("Detected keyboard interrupt. Closing program.")
     sinope.close()
-

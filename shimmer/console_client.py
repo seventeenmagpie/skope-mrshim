@@ -28,23 +28,23 @@ class CommandPrompt(Client):
 
         if command_tokens[0][0] == "!":
             self.handle_command(command_string[1:])
-            self._set_selector_mode('r')
+            self._set_selector_mode("r")
             return 1
         else:
             if command_tokens[0] == "relay":
                 action = "relay"
                 packet = {
-                        "to": command_tokens[1],
-                        "from": self.name,
-                        "content": command_tokens[2],
-                    }
+                    "to": command_tokens[1],
+                    "from": self.name,
+                    "content": command_tokens[2],
+                }
             else:
                 action = "command"
                 packet = {
-                        "to": "server",
-                        "from": self.name,
-                        "content": command_tokens[0],
-                    }
+                    "to": "server",
+                    "from": self.name,
+                    "content": command_tokens[0],
+                }
                 # NOTE: all server commands (currently) have zero arguments. is this appropriate?
 
             try:
@@ -66,7 +66,9 @@ class CommandPrompt(Client):
             # the selector for the prompt is set back to write mode by the packet once its finished processing.
             return mask
         if mask & selectors.EVENT_WRITE:
-            mask = self.send_command()  # .send_command returns a mask because client commands need us to *not* write afterwards.
+            mask = (
+                self.send_command()
+            )  # .send_command returns a mask because client commands need us to *not* write afterwards.
             return mask
 
     def create_request(self, action, value):
@@ -89,7 +91,7 @@ class CommandPrompt(Client):
             )
         else:
             pass  # action is always one of either relay or command. is set by code.
- 
+
     def handle_command(self, command_string):
         command_tokens = parser.parse(command_string)
         self.logger.debug(f"Recieved command tokens are {command_tokens}")
@@ -99,7 +101,7 @@ class CommandPrompt(Client):
         elif command_tokens[0] == "reader":
             message = self.selector.get_key(self.socket).data
             self.selector.modify(self.socket, selectors.EVENT_READ, data=message)
-            
+
         super().handle_command(command_string)
 
 

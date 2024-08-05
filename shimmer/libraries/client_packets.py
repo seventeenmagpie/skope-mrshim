@@ -96,9 +96,7 @@ class Message:
         tiow.close()
         return obj
 
-    def _create_message(
-        self, optional_header=None, *, content_bytes, content_type
-    ):
+    def _create_message(self, optional_header=None, *, content_bytes, content_type):
         """Create the bytes of message that are sent down the wire."""
         jsonheader = {
             "byteorder": sys.byteorder,
@@ -119,7 +117,6 @@ class Message:
         result = content.get("result")
         self.client.logger.info(f"Got result: {result}")
         print(result)
-
 
     def process_events(self, mask):
         """Use selector state to start read or write.
@@ -189,7 +186,7 @@ class Message:
         content = self.request["content"]
         content_type = self.request["type"]
         optional_header_parts = {}
-        
+
         if content_type == "text/json":
             req = {
                 "content_bytes": self._json_encode(content),
@@ -197,9 +194,7 @@ class Message:
             }
         elif content_type in ("command", "relay"):
             req = {
-                "content_bytes": self._json_encode(
-                    content["content"]
-                ),
+                "content_bytes": self._json_encode(content["content"]),
                 "content_type": content_type,
             }
 
@@ -209,7 +204,7 @@ class Message:
             }
 
             if content_type == "relay":
-                self.is_relay=True
+                self.is_relay = True
         else:
             server.logger.warn(f"Invalid request type {content_type} recieved.")
             return  # do not attempt to create a message.
@@ -266,10 +261,10 @@ class Message:
                 # implemented manually because not all clients have a command_send method
                 action = "command"
                 packet = {
-                        "to": "server",
-                        "from": self.client.name,
-                        "content": self.response["result"],
-                    }
+                    "to": "server",
+                    "from": self.client.name,
+                    "content": self.response["result"],
+                }
                 request = self.client.create_request(
                     action,
                     packet,
@@ -290,5 +285,5 @@ class Message:
                 f"response from {self.addr}"
             )
             self.client.logger.warn(f"Recieved packet with unknown type.")
-            
+
         self._clear()

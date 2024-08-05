@@ -8,6 +8,7 @@ import libraries.registry as registry
 from .parser import parse
 from .exceptions import ClientDisconnect
 
+
 class Message:
     def __init__(self, selector, sock, addr, server):
         self.selector = selector
@@ -70,7 +71,7 @@ class Message:
         self._set_selector_events_mask("r")
 
         if self.is_relayed_message:
-            self.is_relayed_message = False 
+            self.is_relayed_message = False
 
     def _write(self):
         """Write data to the socket."""
@@ -84,7 +85,9 @@ class Message:
                     )
                     sent = self.to_socket.send(self._send_buffer)
                 else:
-                    self.server.logger.info(f"Sending {self._send_buffer!r} to {self.addr}")
+                    self.server.logger.info(
+                        f"Sending {self._send_buffer!r} to {self.addr}"
+                    )
                     sent = self.sock.send(self._send_buffer)
             except BlockingIOError:
                 # Resource temporarily unavailable (errno EWOULDBLOCK)
@@ -111,9 +114,7 @@ class Message:
         tiow.close()
         return obj
 
-    def _create_message(
-        self, optional_header=None, *, content_bytes, content_type 
-    ):
+    def _create_message(self, optional_header=None, *, content_bytes, content_type):
         """Assemble the bytes representing the message that we will send down the wire."""
         # assemble jsonheader
         jsonheader = {
@@ -148,14 +149,16 @@ class Message:
 
         response = {
             "content_bytes": self._json_encode(content),
-            "content_type": response_type, 
+            "content_type": response_type,
         }
 
         return response
 
     def process_events(self, mask):
         """Read or write depending on state of socket."""
-        self.server.logger.debug(f"process_events called, self.disconnect is {self.disconnect}")
+        self.server.logger.debug(
+            f"process_events called, self.disconnect is {self.disconnect}"
+        )
         if mask & selectors.EVENT_READ:
             self.read()
         if mask & selectors.EVENT_WRITE:
@@ -257,7 +260,9 @@ class Message:
             self.request = self._json_decode(data)
 
         if self.jsonheader["content-type"] == "text/json":
-            self.server.logger.info(f"Received request {self.request!r} from {self.addr}")
+            self.server.logger.info(
+                f"Received request {self.request!r} from {self.addr}"
+            )
         elif self.jsonheader["content-type"] == "command":
             self.server.logger.debug("Command packet recieved.")
 
@@ -275,7 +280,9 @@ class Message:
 
             if command_tokens[0] == "disconnect":
                 # print disconnecting client message here.
-                print(f"Disconnecting client {registry.get_name_from_address(self.addr)}")
+                print(
+                    f"Disconnecting client {registry.get_name_from_address(self.addr)}"
+                )
                 self.disconnect = True  # flag so we send the disconnect response.
 
         elif self.jsonheader["content-type"] == "relay":
@@ -304,7 +311,7 @@ class Message:
 
             response = {
                 "content_bytes": self._json_encode(content),
-                "content_type": response_type, 
+                "content_type": response_type,
             }
         elif self.jsonheader["content-type"] in ("text/json", "command", "relay"):
             response = self._create_response_json_content()
@@ -314,10 +321,9 @@ class Message:
                     "to": self.jsonheader["to"],
                     "from": self.jsonheader["from"],
                 }
-        else: 
+        else:
             response = self._create_response_binary_content()
 
-           
         self.server.logger.debug(f"created response is {response}")
         message = self._create_message(optional_header_parts, **response)
         self.response_created = True

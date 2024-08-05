@@ -8,6 +8,7 @@ from libraries.client_packets import Message
 from libraries.parser import parse
 from libraries.printers import selector_printer
 
+
 class Client:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
 
@@ -26,7 +27,7 @@ class Client:
             filemode="w",
         )
 
-        self.debugging = registry[self.name].getboolean('debug')
+        self.debugging = registry[self.name].getboolean("debug")
         # uncomment to enable the logging messages to be printed to the console as well as log file
         if self.debugging:
             print("Debugging mode enabled.")
@@ -125,7 +126,7 @@ class Client:
         events = self.selector.select(
             timeout=0
         )  # get waiting io events. timeout = 0 to wait without blocking.
-        
+
         if self.debugging:
             selector_printer(self.selector, events)
 
@@ -150,4 +151,3 @@ class Client:
             self.selector.close()
             print(f"Closed {self.name} client. Goodbye \\o")
             sys.exit(0)
-        

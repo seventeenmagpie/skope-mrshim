@@ -2,6 +2,8 @@ skope_temp contains all the raw scan data from Skope. This isn't used in the pro
 Good idea to clear this out routinely. 
 I haven't automated the clearing because I figure you might want the files for offline use.
 
+These files all have generic names. Although they all store metadata, so any detail can be recovered, you should use copies if you care about them.
+
 Shimmer needs the following data files to operate:
  - A .scan file for probe positions and offsets, ensure the scanid in the matlab matches the number at the start of the filename.
  - A field map (.PAR/.REC) with a magnitude image from which to make a mask, named field_map.PAR/field_map.REC

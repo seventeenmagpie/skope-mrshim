@@ -40,7 +40,6 @@ class SinopeClient(Client):
             mrshim.LinkupHardware(
                 device_name, 1, None  # safe mode is on (ramps currents),
             )
-            mrshim.LoadShimSets("shims.txt")
             mrshim.ApplyShimManually("reset")
 
     def apply_shims(self):

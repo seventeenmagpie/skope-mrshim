@@ -28,6 +28,14 @@ end
 NUMBER_COIL_CHANNELS = 24;
 NUMBER_SKOPE_CHANNELS = 16;
 
+% setting things up for the status printer
+status.starttime = datetime('now');
+status.skope = '';
+status.currents = '';
+status.write = '';
+status.count = '';
+status.uptime = '';
+
 %% reload python module
 % use only on first run or when debugging, otherwise just adds lots of loading time
 interface = py.importlib.import_module('libraries.matlab_interface');
@@ -171,34 +179,24 @@ disp(projectPath)
 
 %% start scan
 disp('Beginning scan loop.');
-keep_going=[];
-count = 0;
+keep_going = [];
+
 while isempty(keep_going)
     sendCommand(connCtrl, 'startScan' );
-    
-    % TODO: make a nice status thing that continuously
-    % updates.
-    % maybe like: 
-    % Acquiring Skope data: ' '/in progress/done
-    % Calculating currents: ' '/in progress/done
-    % Writing shim values : ' '/in progress/done
-    % Count               :             1234
-    % Uptime              :            10:03
-    % this is probably quite difficult to do nicely.
-    % should make a status_update("Status", "Value") function that does the
-    % backspacing and padding and everything for us.
-    % status_update("reset")
 
     % receive B fit data
-    disp("Acquiring Skope data.")
+    status_printer(status, 'skope', 'in progress');
     [data, scanHeader] = getData(connData,portData);
+    status_printer(status, 'skope', 'done');
     
-    % check we have data, if not, skip processing and acquire again
+    % check we have data, if not, skip the processing and acquire it again
     if 1 && all(all(data == 0))
         %disp('its all for nought!')
         continue  % goes to next iteration of loop
     end
     
+    status_printer(status, 'currents', 'in progress');
+
     % process the data
     data=squeeze(squeeze(data));
     average_field = mean(data, 2);
@@ -212,7 +210,6 @@ while isempty(keep_going)
     % TODO: compare these to what skope calculates itself, though this isnt
     % exactly intensive...
     condition_number = cond(spharms);
-    disp("Calculating currents.")
     spharm_coeffs = lsqr(spharms', field_in_hertz);
     
     currents = zeros([NUMBER_COIL_CHANNELS, 1]);
@@ -221,16 +218,24 @@ while isempty(keep_going)
         currents = currents-(spharm_coeffs(i).*coil_coefficients(i, :))';
     end
 
+    status_printer(status, 'currents', 'done');
+
     %disp('Currents are: [mA]')
     %disp(currents)
-    
-    disp("Writing currents.")
+
+    status_printer(status, 'write', 'in progress');
     % currents should be a ROW vector of currents in MILLIAMPS
-    client.send_currents(int32(currents'))
-    
+    client.send_currents(int32(currents'));
+    status_printer(status, 'write', 'done');
+
     %keep_going = input('Enter anything to stop. ');
-    disp("That was loop number: ", count)
-    count = count +1;
+    status_printer(status, 'count', status.count + 1);
+    status_printer(status, 'time', datetime('now'));
+
+    % reset status display
+    status.currents = '';
+    status.write = '';
+    status_printer(status, 'skope', '')  % only use once to print them.
 end
 
 %% close connections

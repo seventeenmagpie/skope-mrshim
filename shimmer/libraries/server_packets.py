@@ -56,7 +56,7 @@ class Message:
             if data:
                 self._recv_buffer += data
             else:
-                raise RuntimeError("Peer closed.")
+                raise RuntimeError(self.addr)
 
     def _clear(self):
         """Reset the buffers and set the selector back to read, ready to recieve more data."""

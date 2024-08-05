@@ -98,7 +98,6 @@ class ShimmingServer:
         name_assigned = False
 
         # work out which role the newly connected client is by comparing against the directory registry file.
-        # BUG: if a client is not identified, it falls through to the final client in the .ini
         for role in reg.registry.sections():
             reg_address = reg.get_address(role)
             name_assigned = False
@@ -127,6 +126,9 @@ class ShimmingServer:
         if self.debugging:
             selector_printer(self.sel, events)
 
+        if self.halting:
+            self.stop()
+
         for key, mask in events:  # iterate through waiting sockets.
             # key is a NamedTuple with the socket number and data=message. mask is the io type.
             if key.data is None:  # this is a new socket, we should accept it.
@@ -139,13 +141,13 @@ class ShimmingServer:
                 try:
                     self.current_message.process_events(mask)
                 # during processing, one of the folliwng special exceptions may arise.
-                except ClientDisconnect as disconnect_address:
+                except ClientDisconnect as disconnected_address:
                     # remove from internal list of clients
-                    self._remove_from_registry(disconnect_address)
+                    self._remove_from_registry(disconnected_address)
                     # BUG: server seems to hang on disconnect. check status of selector. Windows only?
-                except RuntimeError:
-                    # TODO: delete this client from the registry also (ie, get the address)
+                except RuntimeError as disconnected_address: 
                     print("Client disconnected suddenly.")
+                    self._remove_from_registry(disconnected_address)
                     # client probably just ctrl-c'd
                     self.current_message.close()
                 except Exception:
@@ -155,8 +157,6 @@ class ShimmingServer:
                     )
                     self.current_message.close()
 
-        if self.halting:
-            self.stop()
 
     def _remove_from_registry(self, address):
         for name, client in reg.clients_on_registry.items():

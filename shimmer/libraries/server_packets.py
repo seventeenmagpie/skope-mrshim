@@ -67,19 +67,10 @@ class Message:
         self.request = None
         self.response_created = False
 
-        # after we send something, we should be ready to listen again.
-        # this appears twice because during relaying
-        # the new destination socket is set to write, so we need to put that back
-        # onto read
-        # *then* retrieve the original socket
-        # and make sure that is on read too.
-        # NOTE: this doesn't seem to do anything
-        # TODO: check if this does anything
         self._set_selector_events_mask("r")
 
         if self.is_relayed_message:
-            self.is_relayed_message = False
-            self._set_selector_events_mask("r")
+            self.is_relayed_message = False 
 
     def _write(self):
         """Write data to the socket."""

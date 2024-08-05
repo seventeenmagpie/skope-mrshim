@@ -196,7 +196,8 @@ while isempty(keep_going)
     end
     
     status_printer(status, 'currents', 'in progress');
-
+    
+    % DATA PROCESSING
     % process the data
     data=squeeze(squeeze(data));
     average_field = mean(data, 2);
@@ -223,6 +224,7 @@ while isempty(keep_going)
     %disp('Currents are: [mA]')
     %disp(currents)
 
+    % SENDING THE CURRENTS
     status_printer(status, 'write', 'in progress');
     % currents should be a ROW vector of currents in MILLIAMPS
     client.send_currents(int32(currents'));

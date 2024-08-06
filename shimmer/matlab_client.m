@@ -29,12 +29,7 @@ NUMBER_COIL_CHANNELS = 24;
 NUMBER_SKOPE_CHANNELS = 16;
 
 % setting things up for the status printer
-status.starttime = datetime('now');
-status.skope = '';
-status.currents = '';
-status.write = '';
-status.count = '';
-status.uptime = '';
+sp = StatusPrinter();
 
 %% reload python module
 % use only on first run or when debugging, otherwise just adds lots of loading time
@@ -182,9 +177,10 @@ while isempty(keep_going)
     sendCommand(connCtrl, 'startScan' );
 
     % receive B fit data
-    status_printer(status, 'skope', 'in progress');
+    sp.update_status('skope', 'in progress');
     [data, scanHeader] = getData(connData,portData);
-    status_printer(status, 'skope', 'done');
+    data = zeros(24, 2);
+    sp.update_status('skope', 'done');
     
     % check we have data, if not, skip the processing and acquire it again
     if 1 && all(all(data == 0))
@@ -192,7 +188,7 @@ while isempty(keep_going)
         continue  % goes to next iteration of loop
     end
     
-    status_printer(status, 'currents', 'in progress');
+    sp.update_status('currents', 'in progress');
     
     % DATA PROCESSING
     % process the data
@@ -216,25 +212,25 @@ while isempty(keep_going)
         currents = currents-(spharm_coeffs(i).*coil_coefficients(i, :))';
     end
 
-    status_printer(status, 'currents', 'done');
+    sp.update_status('currents', 'done');
 
     %disp('Currents are: [mA]')
     %disp(currents)
 
     % SENDING THE CURRENTS
-    status_printer(status, 'write', 'in progress');
+    sp.update_status('write', 'in progress');
     % currents should be a ROW vector of currents in MILLIAMPS
-    client.send_currents(int32(currents'));
-    status_printer(status, 'write', 'done');
+    %client.send_currents(int32(currents'));
+    sp.update_status('write', 'done');
 
     %keep_going = input('Enter anything to stop. ');
-    status_printer(status, 'count', status.count + 1);
-    status_printer(status, 'time', datetime('now'));
+    sp.update_status('count', status.count + 1);
+    sp.update_status('time', datetime('now'));
 
     % reset status display
-    status.currents = '';
-    status.write = '';
-    status_printer(status, 'skope', '')  % only use once to print them.
+    sp.update_status('currents', '')
+    sp.update_status('write', '')
+    sp.update_status('skope', '')
 end
 
 %% disconnect from python server

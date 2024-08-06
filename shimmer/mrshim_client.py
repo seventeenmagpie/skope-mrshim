@@ -10,7 +10,7 @@ import libraries.parser as parser
 from libraries.generic_client import Client
 from libraries.client_packets import Message
 
-JUPITER_PLUGGED_IN = False
+JUPITER_PLUGGED_IN = True
 if JUPITER_PLUGGED_IN:
     import libraries.hwio as mrshim
 

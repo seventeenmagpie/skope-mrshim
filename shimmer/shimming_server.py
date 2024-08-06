@@ -85,6 +85,7 @@ class ShimmingServer:
             print(f"Server {'is' if self.running else 'is not'} running.")
         elif command_tokens[0] == "halt":
             self.stop()
+        # TODO: add an 'enable debug mode' command
 
     def accept_wrapper(self, sock):
         """Accept a new client's connection."""

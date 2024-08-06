@@ -17,7 +17,7 @@ shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrs
 addpath([shimmer_directory, 'libraries/'])
 addpath([shimmer_directory, 'libraries/methods/']);
 data_folder = [shimmer_directory , 'data/'];
-skope_temp = [shimmer_directory, 'data/skope_tmp'];
+skope_temp = [shimmer_directory, 'data/skope_temp'];
 
 % adds libraries to the python path
 % From: https://uk.mathworks.com/help/matlab/matlab_external/call-user-defined-custom-module.html
@@ -65,6 +65,8 @@ connCtrl = initTCPClient( Host, PortBase, BufferSize );
 % init TCP/IP client object for 'Bfit'
 portData = PortBase + 4;
 connData = initTCPClient( Host, portData, BufferSize );
+
+% TODO: add explanation of how to stream additional data
 
 %% inititate python client interface
 client = interface.MatlabClient('matlab');
@@ -235,11 +237,11 @@ while isempty(keep_going)
     status_printer(status, 'skope', '')  % only use once to print them.
 end
 
-%% close connections
+%% disconnect from python server
 % If error occours, close the connection
 disp("Disconnecting from Shimmer server.")
 client.close()
-
+%% disconnect from skope server
 disp('Disconnecting from Skope server. ')
 fclose(connData); clear connData;
 fclose(connCtrl); clear connCtrl;

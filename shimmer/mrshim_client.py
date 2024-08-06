@@ -36,7 +36,7 @@ class SinopeClient(Client):
         self.shimming_file = open("shims.txt", "w", encoding="utf-8")
 
         if JUPITER_PLUGGED_IN:
-            device_name = ""
+            device_name = r""
             mrshim.LinkupHardware(
                 device_name, 1, None  # safe mode is on (ramps currents),
             )
@@ -121,7 +121,7 @@ class SinopeClient(Client):
             if command_tokens[0] == "shim":
                 tile = [
                     int(current_string) / 1000 for current_string in command_tokens[1:]
-                ]  # the tile
+                ]  # the tile. divide by 1000 for conversion from mA to A.
                 flooring = [0 for _ in range(self.channel_number)]  # the empty floor
 
                 # tiles the tile across the floor
@@ -158,16 +158,9 @@ if len(sys.argv) != 1:
     sys.exit(1)
 
 
-# create the selector
-# every client creates its own default selector, which isnt used outside of the class, shouldn't we do this in the generic client class?
-
 name = "sinope"
-
-# create and register the command prompt.
 sinope = SinopeClient(name)
-# sinope.selector.register(sinope.descriptor_socket, selectors.EVENT_WRITE, data=sinope)
 
-debugging = False
 try:
     while True:
         sinope.main_loop()

@@ -12,7 +12,7 @@ from libraries.client_packets import Message
 
 JUPITER_PLUGGED_IN = True
 if JUPITER_PLUGGED_IN:
-    import libraries.hwio as mrshim
+    from libraries.mrshim import hwio as mrshim
 
 
 class SinopeClient(Client):

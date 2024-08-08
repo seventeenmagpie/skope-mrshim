@@ -10,10 +10,18 @@ import libraries.parser as parser
 from libraries.generic_client import Client
 from libraries.client_packets import Message
 
-JUPITER_PLUGGED_IN = True
+JUPITER_PLUGGED_IN = True  # set to True to enable Jupiter functionality.
 if JUPITER_PLUGGED_IN:
-    from libraries.mrshim import hwio as mrshim
-
+    # import the libshim library and set the argument types where needs be.
+    import ctypes
+    mrshim = ctypes.cdll.LoadLibrary(r".\libraries\libshim.dll")  # path to libshim.dll
+    mrshim.ShimStart.argtypes = (ctypes.c_char_p, ctypes.c_int)
+    mrshim.ShimEnableWithRamp.argtypes = ctypes.c_float
+    # WARN: c_void_p may need to be a pointer to an int32, not sure.
+    # c_int32_p = ctypes.POINTER(ctypes.c_int32)
+    mrshim.ShimSetCurr.argtypes = ctypes.c_void_p, ctypes.c_int, ctypes.c_bool
+else:
+    print("NOTE: JUPITER_PLUGGED_IN is not True, Jupiter functionality is disabled and this will write to shims.txt. See line 13 of mrshim_client.py")
 
 class SinopeClient(Client):
     """A class for Sinope. Handles !shim commands and writes shim currents to the file."""
@@ -36,11 +44,20 @@ class SinopeClient(Client):
         self.shimming_file = open("shims.txt", "w", encoding="utf-8")
 
         if JUPITER_PLUGGED_IN:
-            device_name = r""
-            mrshim.LinkupHardware(
-                device_name, 1, None  # safe mode is on (ramps currents),
-            )
-            mrshim.ApplyShimManually("reset")
+            self.jupiter_ifname = r"\Device\NPF_{58A4C8CA-56D2-4F34-8D5E-74FD1F2E60CA}"
+            self.jupiter_ifname_unicode = jupiter_ifname.encode('utf-8')
+            self._jupiter_start_connection() 
+
+    def _jupiter_start_connection(self):
+        rc = mrshim.ShimStart(self.jupiter_ifname_unicode, 1)
+        if rc == 0:
+            print("Connected to Jupiter device!")
+        else:
+            self.logger.warn(f"Issue connecting to Jupiter devices. Error code: {rc}")
+            print(f"Issue connecting to Jupiter devices. Error code: {rc}")
+            print(f"Consult Internal Software Tools Documentation.pdf for interpretation.")
+            print("Shimming will not work. Will write to shims.txt instead.")
+            JUPITER_PLUGGED_IN = False  # HACK: my constant isn't constant...
 
     def apply_shims(self):
         """Decide what to do with the shim values."""
@@ -68,10 +85,18 @@ class SinopeClient(Client):
         max = 2000
         for idx, current in enumerate(self.currents):
             if abs(current) > max:
-                print(f"Current exceeds safe maximum +/-{max}. Setting to 0A.")
+                print(f"Current exceeds safe maximum +/-{max}mA. Setting to 0mA.")
                 self.currents[idx] = 0
-        mrshim.ApplyShimSet(self.currents)
-        print(mrshim.HardwareReport())
+        mrshim.ShimSetCurr(self.currents, len(self.currents), False)
+        print(f"Shims applied: {self.currents}")
+
+        if self.print_status:
+            first_diverged_channel = mrshim.ShimChannelDiverged()
+            if first_diverged_channel:
+                print(f"Channel {first_diverged_channel} did not converge, and later channels may not have either.")
+            else:
+                # TODO: implement current status and so on.
+                print("Shim status nominal.")
 
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
@@ -120,8 +145,8 @@ class SinopeClient(Client):
         try:
             if command_tokens[0] == "shim":
                 tile = [
-                    int(current_string) / 1000 for current_string in command_tokens[1:]
-                ]  # the tile. divide by 1000 for conversion from mA to A.
+                    int(current_string) for current_string in command_tokens[1:]
+                ]  # the tile.
                 flooring = [0 for _ in range(self.channel_number)]  # the empty floor
 
                 # tiles the tile across the floor
@@ -132,11 +157,38 @@ class SinopeClient(Client):
                 self.currents = flooring
                 self._set_selector_mode("w")
             elif command_tokens[0] == "start":
-                print("Shimming has been started.")
+                print("Shimming enabled.")
                 self.shimming = True
+
+                if JUPITER_PLUGGED_IN:
+                    mrshim.ShimEnableWithRamp(16)
+                    mrshim.ShimResetCurr()
+                    
             elif command_tokens[0] == "stop":
-                print("Shimming has been stopped.")
+                print("Shimming disabled.")
                 self.shimming = False
+
+                if JUPITER_PLUGGED_IN:
+                    mrshim.ShimResetCurr()
+                    mrshim.ShimDisable()
+                   
+            elif command_tokens[0] == "status":
+                if JUPITER_PLUGGED_IN:
+                    self.print_status = not self.print_satus
+                    # toggle printing status information
+                else:
+                    print("JUPITER_PLUGGED_IN is not True, can't do anything.")
+                    print("Either this constant is set to False in mrshim_client.py, or the connection failed in the first instance.")
+
+            elif command_tokens[0] == "reset":
+                print("Attempting soft reset of Jupiter connection.")
+                if JUPITER_PLUGGED_IN:
+                    mrshim.shim_soft_close()
+                    self._jupiter_start_connection()
+                else:
+                    print("JUPITER_PLUGGED_IN is not True, can't do anything.")
+                    print("Either this constant is set to False in mrshim_client.py, or the connection failed in the first instance.")
+
             elif command_tokens[0] == "egg":
                 print(f"Step aside Mr. Beat! \a")
         except IndexError:
@@ -147,7 +199,7 @@ class SinopeClient(Client):
 
     def close(self):
         if JUPITER_PLUGGED_IN:
-            mrshim.CloseHardwareLink()
+            mrshim.ShimStop()
         self.shimming_file.close()
         super().close()
 
@@ -167,3 +219,7 @@ try:
 except KeyboardInterrupt:
     print("Detected keyboard interrupt. Closing program.")
     sinope.close()
+finally:
+    # very important that we stop shimming.
+    if JUPITER_PLUGGED_IN:
+        mrshim.ShimStop()

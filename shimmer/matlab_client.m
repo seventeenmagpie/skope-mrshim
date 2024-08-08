@@ -95,9 +95,9 @@ resolution = 3e-3;
 z_resolution = 3.3e-3;
 
 % integer index coordinates for each voxel
-x=resolution*(-mask_size(1)/2):(mask_size(1)/2-1);
-y=resolution*(-mask_size(2)/2):(mask_size(2)/2-1);
-z=z_resolution*(-mask_size(3)/2):(mask_size(3)/2-1);
+x=resolution*((-mask_size(1)/2):(mask_size(1)/2-1));
+y=resolution*((-mask_size(2)/2):(mask_size(2)/2-1));
+z=z_resolution*((-mask_size(3)/2):(mask_size(3)/2-1));
 
 % imagespace coordinate grid
 % NOTE: using meshgrid puts X and Y the other way around.
@@ -179,7 +179,6 @@ while isempty(keep_going)
     % receive B fit data
     sp.update_status('skope', 'in progress');
     [data, scanHeader] = getData(connData,portData);
-    data = zeros(24, 2);
     sp.update_status('skope', 'done');
     
     % check we have data, if not, skip the processing and acquire it again
@@ -189,28 +188,8 @@ while isempty(keep_going)
     end
     
     sp.update_status('currents', 'in progress');
-    
-    % DATA PROCESSING
-    % process the data
-    data=squeeze(squeeze(data));
-    average_field = mean(data, 2);
-
-    %disp('Average field values: [mT]: ')
-    %disp(average_field);
-    
-    % below taken from richard bowtell's script
-    field_in_hertz = average_field*267.5e6/(2*pi);  % hydrogen hertz
-    
-    % TODO: compare these to what skope calculates itself, though this isnt
-    % exactly intensive...
-    condition_number = cond(spharms);
-    spharm_coeffs = lsqr(spharms', field_in_hertz);
-    
-    currents = zeros([NUMBER_COIL_CHANNELS, 1]);
-    
-    for i = 1:size(spharm_coeffs)
-        currents = currents-(spharm_coeffs(i).*coil_coefficients(i, :))';
-    end
+   
+    currents = calculate_currents(data, coil_coefficients);
 
     sp.update_status('currents', 'done');
 

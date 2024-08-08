@@ -15,11 +15,9 @@ if JUPITER_PLUGGED_IN:
     # import the libshim library and set the argument types where needs be.
     import ctypes
     mrshim = ctypes.cdll.LoadLibrary(r".\libraries\libshim.dll")  # path to libshim.dll
-    mrshim.ShimStart.argtypes = (ctypes.c_char_p, ctypes.c_int)
-    mrshim.ShimEnableWithRamp.argtypes = ctypes.c_float
-    # WARN: c_void_p may need to be a pointer to an int32, not sure.
-    # c_int32_p = ctypes.POINTER(ctypes.c_int32)
-    mrshim.ShimSetCurr.argtypes = ctypes.c_void_p, ctypes.c_int, ctypes.c_bool
+    mrshim.ShimStart.argtypes = ctypes.c_char_p, ctypes.c_int
+    c_int32_p = ctypes.POINTER(ctypes.c_int32)
+    mrshim.ShimSetCurr.argtypes = c_int32_p, ctypes.c_int, ctypes.c_bool
 else:
     print("NOTE: JUPITER_PLUGGED_IN is not True, Jupiter functionality is disabled and this will write to shims.txt. See line 13 of mrshim_client.py")
 
@@ -32,6 +30,7 @@ class SinopeClient(Client):
         self.channel_number = 24
         self.shimming = False  # shimming is disabled by default!
         self.currents = [0 for _ in range(1, self.channel_number)]
+        self.print_status = False
 
         # because we never send anything first, we need to create the Message object for this client manually.
         events = selectors.EVENT_READ
@@ -45,7 +44,7 @@ class SinopeClient(Client):
 
         if JUPITER_PLUGGED_IN:
             self.jupiter_ifname = r"\Device\NPF_{58A4C8CA-56D2-4F34-8D5E-74FD1F2E60CA}"
-            self.jupiter_ifname_unicode = jupiter_ifname.encode('utf-8')
+            self.jupiter_ifname_unicode = self.jupiter_ifname.encode('utf-8')
             self._jupiter_start_connection() 
 
     def _jupiter_start_connection(self):
@@ -87,7 +86,9 @@ class SinopeClient(Client):
             if abs(current) > max:
                 print(f"Current exceeds safe maximum +/-{max}mA. Setting to 0mA.")
                 self.currents[idx] = 0
-        mrshim.ShimSetCurr(self.currents, len(self.currents), False)
+        ctype_currents = (ctypes.c_int32 * 24)(*self.currents)
+        current_pointer = ctypes.cast(ctype_currents, ctypes.POINTER(ctypes.c_int32))
+        mrshim.ShimSetCurr(current_pointer, 24, False)
         print(f"Shims applied: {self.currents}")
 
         if self.print_status:
@@ -161,7 +162,7 @@ class SinopeClient(Client):
                 self.shimming = True
 
                 if JUPITER_PLUGGED_IN:
-                    mrshim.ShimEnableWithRamp(16)
+                    mrshim.ShimEnable()
                     mrshim.ShimResetCurr()
                     
             elif command_tokens[0] == "stop":

@@ -97,6 +97,7 @@ class SinopeClient(Client):
                 print(f"Channel {first_diverged_channel} did not converge, and later channels may not have either.")
             else:
                 # TODO: implement current status and so on.
+                # how to return lists: https://stackoverflow.com/questions/26531611/python-ctypes-convert-returned-c-array-to-python-list-without-numpy?rq=3
                 print("Shim status nominal.")
 
     def process_events(self, mask):

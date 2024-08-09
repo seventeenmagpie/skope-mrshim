@@ -174,42 +174,34 @@ disp('Beginning scan loop.');
 keep_going = [];
 
 while isempty(keep_going)
+    clc;
+    disp(["Starting scan: ", count])
     sendCommand(connCtrl, 'startScan' );
 
     % receive B fit data
-    sp.update_status('skope', 'in progress');
+    disp("Recieving data.")
     [data, scanHeader] = getData(connData,portData);
-    sp.update_status('skope', 'done');
     
     % check we have data, if not, skip the processing and acquire it again
     if 1 && all(all(data == 0))
-        %disp('its all for nought!')
+        disp("No data recieved. Trying again.")
         continue  % goes to next iteration of loop
     end
     
-    sp.update_status('currents', 'in progress');
+    disp("Calculating currents.")
    
     currents = calculate_currents(data, coil_coefficients);
 
-    sp.update_status('currents', 'done');
-
-    %disp('Currents are: [mA]')
-    %disp(currents)
+    disp("Currents are: [mA]")
+    disp(currents')
 
     % SENDING THE CURRENTS
-    sp.update_status('write', 'in progress');
     % currents should be a ROW vector of currents in MILLIAMPS
-    %client.send_currents(int32(currents'));
-    sp.update_status('write', 'done');
+    client.send_currents(int32(currents'));
+    disp("Currents sent.")
 
-    %keep_going = input('Enter anything to stop. ');
-    sp.update_status('count', status.count + 1);
-    sp.update_status('time', datetime('now'));
+    keep_going = input('Enter anything to stop. ');
 
-    % reset status display
-    sp.update_status('currents', '')
-    sp.update_status('write', '')
-    sp.update_status('skope', '')
 end
 
 %% disconnect from python server

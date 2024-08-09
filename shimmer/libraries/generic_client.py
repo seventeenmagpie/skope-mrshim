@@ -29,11 +29,12 @@ class Client:
 
         self.debugging = registry[self.name].getboolean("debug")
         self.stdout_handler = logging.StreamHandler(sys.stdout)
-        self.stdout_handler.setLevel(logging.DEBUG)
-        # uncomment to enable the logging messages to be printed to the console as well as log file
+        self.stdout_handler.setLevel(logging.WARNING)  # TODO: go through all debugs and set some of them to WARNs.
+        self.logger.addHandler(self.stdout_handler)
         if self.debugging:
+            self.stdout_handler.setLevel(logging.DEBUG)
             print("Debugging mode enabled.")
-            self.logger.addHandler(self.stdout_handler)
+
 
     def _set_selector_mode(self, mode):
         """Set whether this client's selector entry should select for read/write or both."""
@@ -95,17 +96,15 @@ class Client:
             elif command_tokens[0] == "server_disconnect":
                 self.logger.info("Recieved disconnect command from server.")
                 self.close()
-                # TODO: add a command to enable/disable debugging mode.
-                # also a command that puts us in debug mode for a single iteration.
             elif command_tokens[0] == "debug":
                 self.debugging = not self.debugging
 
                 if self.debugging:
                     print("Debugging mode enabled.")
-                    self.logger.addHandler(self.stdout_handler)
+                    self.logger.setLevel(logging.DEBUG)
                 else:
                     print("Debugging mode disabled.")
-                    self.logger.removeHandler(self.stdout_handler)
+                    self.logger.setLevel(logging.WARNING)
 
         except IndexError:
             print(

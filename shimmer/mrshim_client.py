@@ -3,7 +3,7 @@
 import selectors
 import sys
 import traceback
-import os  # for os.linesep one time
+import os  # for os.linesep that one time
 
 from libraries.exceptions import ClientDisconnect
 import libraries.parser as parser
@@ -18,6 +18,11 @@ if JUPITER_PLUGGED_IN:
     mrshim.ShimStart.argtypes = ctypes.c_char_p, ctypes.c_int
     c_int32_p = ctypes.POINTER(ctypes.c_int32)
     mrshim.ShimSetCurr.argtypes = c_int32_p, ctypes.c_int, ctypes.c_bool
+    mrshim.ShimSetCurr.restype = None
+    mrshim.ShimGetAttr.argtypes = ctypes.c_int
+    mrshim.ShimGetAttr.restype = ctypes.POINTER(ctypes.c_int16)
+    mrshim.ShimChannelDiverged = ctypes.c_int
+
 else:
     print("NOTE: JUPITER_PLUGGED_IN is not True, Jupiter functionality is disabled and this will write to shims.txt. See line 13 of mrshim_client.py")
 
@@ -43,11 +48,13 @@ class SinopeClient(Client):
         self.shimming_file = open("shims.txt", "w", encoding="utf-8")
 
         if JUPITER_PLUGGED_IN:
-            self.jupiter_ifname = r"\Device\NPF_{58A4C8CA-56D2-4F34-8D5E-74FD1F2E60CA}"
-            self.jupiter_ifname_unicode = self.jupiter_ifname.encode('utf-8')
             self._jupiter_start_connection() 
+            self.channel_number = mrshim.shim_num_channels()
 
+    # TODO: move all this into a library, then others can use it!
     def _jupiter_start_connection(self):
+        self.jupiter_ifname = r"\Device\NPF_{58A4C8CA-56D2-4F34-8D5E-74FD1F2E60CA}"
+        self.jupiter_ifname_unicode = self.jupiter_ifname.encode('utf-8')
         rc = mrshim.ShimStart(self.jupiter_ifname_unicode, 1)
         if rc == 0:
             print("Connected to Jupiter device!")
@@ -57,6 +64,19 @@ class SinopeClient(Client):
             print(f"Consult Internal Software Tools Documentation.pdf for interpretation.")
             print("Shimming will not work. Will write to shims.txt instead.")
             JUPITER_PLUGGED_IN = False  # HACK: my constant isn't constant...
+
+    def _jupiter_display_status(self):
+        # print temperatures
+        temp = mrshim.ShimGetAttr(6)
+        # TODO: implement conversion from arbitrary units
+        temperatures = [temp[i] for i in range(self.channel_number)]
+        temperatures_string = ' '.join([str(temp) for temp in temperatures])
+        print(f"Coil temperatures are [au]: {temperatures_string}")
+        # print currents
+        current = mrshim.ShimGetAttr(0)
+        currents = [current[i] for i in range(self.channel_number)]
+        currents_string = ' '.join([str(current) for current in currents])
+        print(f"Currents being applied are [mA]: {currents_string}")
 
     def apply_shims(self):
         """Decide what to do with the shim values."""
@@ -74,7 +94,7 @@ class SinopeClient(Client):
             # (space delimited floats)
             formatted_currents = (
                 " ".join(["{:5.4f}".format(current) for current in self.currents])
-                + os.linesep  # this doesn't seem to do anything??
+                    + os.linesep  # BUG: this doesn't seem to do anything??
             )
             self.shimming_file.write(formatted_currents)
             self.shimming_file.flush()
@@ -95,11 +115,8 @@ class SinopeClient(Client):
             first_diverged_channel = mrshim.ShimChannelDiverged()
             if first_diverged_channel:
                 print(f"Channel {first_diverged_channel} did not converge, and later channels may not have either.")
-            else:
-                # TODO: implement current status and so on.
-                # how to return lists: https://stackoverflow.com/questions/26531611/python-ctypes-convert-returned-c-array-to-python-list-without-numpy?rq=3
-                print("Shim status nominal.")
-
+            self._jupiter_display_status(self)
+        
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
         # this client doesn't actually do anything to the server itself.
@@ -216,6 +233,8 @@ if len(sys.argv) != 1:
 
 
 name = "mrshim"
+# NOTE: client called sinope here because mrshim is reserved for the shim library
+# TODO: change that.
 sinope = SinopeClient(name)
 
 try:
@@ -223,8 +242,8 @@ try:
         sinope.main_loop()
 except KeyboardInterrupt:
     print("Detected keyboard interrupt. Closing program.")
-    sinope.close()
 finally:
     # very important that we stop shimming.
     if JUPITER_PLUGGED_IN:
         mrshim.ShimStop()
+    sinope.close()

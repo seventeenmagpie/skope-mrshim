@@ -174,7 +174,6 @@ disp('Beginning scan loop.');
 keep_going = [];
 
 while isempty(keep_going)
-    clc;
     disp(["Starting scan: ", count])
     sendCommand(connCtrl, 'startScan' );
 

@@ -28,9 +28,6 @@ end
 NUMBER_COIL_CHANNELS = 24;
 NUMBER_SKOPE_CHANNELS = 16;
 
-% setting things up for the status printer
-sp = StatusPrinter();
-
 %% reload python module
 % use only on first run or when debugging, otherwise just adds lots of loading time
 interface = py.importlib.import_module('libraries.matlab_interface');
@@ -168,19 +165,25 @@ sendCommand(connCtrl, 'setProjectPath', skope_temp );
 disp('Bfit scan data will be stored at:');
 projectPath = sendCommand(connCtrl, 'getProjectPath' );
 disp(projectPath)
+%% create figure 
+figure(1)
+hold on  % so we can append data.
 
 %% start scan
 disp('Beginning scan loop.');
 keep_going = [];
-
+count = 1;
+previous_data = [];
 while isempty(keep_going)
-    disp(["Starting scan: ", count])
+    disp(count)
     sendCommand(connCtrl, 'startScan' );
 
     % receive B fit data
     disp("Recieving data.")
     [data, scanHeader] = getData(connData,portData);
-    
+    previous_data = [previous_data, mean(data, 2)];
+    plot([1:count], previous_data)
+
     % check we have data, if not, skip the processing and acquire it again
     if 1 && all(all(data == 0))
         disp("No data recieved. Trying again.")
@@ -189,7 +192,7 @@ while isempty(keep_going)
     
     disp("Calculating currents.")
    
-    currents = calculate_currents(data, coil_coefficients);
+    currents = calculate_currents(data, coil_coefficients, spharms);
 
     disp("Currents are: [mA]")
     disp(currents')
@@ -200,7 +203,7 @@ while isempty(keep_going)
     disp("Currents sent.")
 
     keep_going = input('Enter anything to stop. ');
-
+    count = count +1;
 end
 
 %% disconnect from python server

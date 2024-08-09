@@ -3,7 +3,7 @@
 %   currents should be an array of currents in mA (integers)
 %   data can take any shape, is returned by the get_data() function in
 %   matlab_client.m
-function [currents] = calculate_currents(data, coil_coefficients)
+function [currents] = calculate_currents(data, coil_coefficients, spharms)
     % DATA PROCESSING
     % process the data
     data=squeeze(squeeze(data));
@@ -20,7 +20,7 @@ function [currents] = calculate_currents(data, coil_coefficients)
     condition_number = cond(spharms);
     spharm_coeffs = lsqr(spharms', field_in_hertz);
     
-    currents = zeros([NUMBER_COIL_CHANNELS, 1]);
+    currents = zeros([24, 1]);
     
     for i = 1:size(spharm_coeffs)
         currents = currents-(spharm_coeffs(i).*coil_coefficients(i, :))';

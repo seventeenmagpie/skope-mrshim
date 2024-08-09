@@ -151,6 +151,9 @@ class SinopeClient(Client):
                 ]  # the tile.
                 flooring = [0 for _ in range(self.channel_number)]  # the empty floor
 
+                if not tile:  # if not passed with any arguments, all zeros.
+                    tile = [0]
+
                 # tiles the tile across the floor
                 # i think this is very clever, which probably means it's wrong
                 for idx, _ in enumerate(flooring):
@@ -212,7 +215,7 @@ if len(sys.argv) != 1:
     sys.exit(1)
 
 
-name = "sinope"
+name = "mrshim"
 sinope = SinopeClient(name)
 
 try:

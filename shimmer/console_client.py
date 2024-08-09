@@ -46,6 +46,7 @@ class CommandPrompt(Client):
                     "content": command_tokens[0],
                 }
                 # NOTE: all server commands (currently) have zero arguments. is this appropriate?
+                # TODO: make entering no command (empty) behave like !reader
 
             try:
                 self.logger.debug(f"Attempting to create request.")

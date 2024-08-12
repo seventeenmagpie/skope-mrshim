@@ -1,4 +1,5 @@
 import selectors
+import sys
 
 from libraries.exceptions import ClientDisconnect
 import libraries.parser as parser
@@ -13,6 +14,10 @@ class MatlabClient(Client):
     def __init__(self, name):
         name = "matlab"
         super().__init__(name)
+
+    def close(self):
+        super()._close()
+        sys.exit(0)
 
     def send_currents(self, currents):
         """Called by matlab. Sends a current."""

@@ -8,7 +8,6 @@ from libraries.client_packets import Message
 from libraries.parser import parse
 from libraries.printers import selector_printer
 
-
 class Client:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
 
@@ -18,6 +17,7 @@ class Client:
         self.my_address = get_address(name)
         self.server_address = get_address("server")
         self.addr = self.my_address  # for the selector printer
+        self.running = True
 
         # set up the logger
         self.logger = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ class Client:
                 print(f"{' '.join(command_tokens[1:])}")
             elif command_tokens[0] == "server_disconnect":
                 self.logger.info("Recieved disconnect command from server.")
-                self.close()
+                self.running = False 
             elif command_tokens[0] == "debug":
                 self.debugging = not self.debugging
 
@@ -120,11 +120,10 @@ class Client:
 
         Thus the client reads before the packet writes and writes after the packet reads.
 
-        I have kept the flags backwards here rather than keeping their conventional meanings and changing the flags inside the client's process_events because I felt like this was easier to understand
+        I have kept the flags backwards here rather than keeping their conventional meanings and changing the flags inside the client's process_events because I felt like this was easier to understand because this will be seen less by a developer.
 
         But now I've explained it to myself I feel slightly different.
         """
-        # TODO: think more about this.
 
         if mask & selectors.EVENT_READ:
             self.logger.debug("Client is doing something after the packet read.")
@@ -152,13 +151,13 @@ class Client:
                 )
                 message.close()
 
-    def close(self):
-        try:  # because of outer exception handling, this can get called twice and cause weirdness.
+    def _close(self):
+        print("Client ._close() called")
+        try: 
             message = self.selector.get_key(self.socket).data
             message.close()
-        except:
-            pass
+        except Exception as e:
+            print(e)
         finally:
             self.selector.close()
             print(f"Closed {self.name} client. Goodbye \\o")
-            sys.exit(0)

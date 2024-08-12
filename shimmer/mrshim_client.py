@@ -10,7 +10,7 @@ import libraries.parser as parser
 from libraries.generic_client import Client
 from libraries.client_packets import Message
 
-JUPITER_PLUGGED_IN = True  # set to True to enable Jupiter functionality.
+JUPITER_PLUGGED_IN = False  # set to True to enable Jupiter functionality.
 if JUPITER_PLUGGED_IN:
     import libraries.jupiter_interface as jupiter
 else:
@@ -41,6 +41,12 @@ class SinopeClient(Client):
             jupiter.start_connection() 
             self.channel_number = jupiter.channel_number()
 
+    def close(self):
+        print("mrshim .close() called")
+        if JUPITER_PLUGGED_IN:
+            jupiter.stop()
+        self.shimming_file.close()
+        super()._close()
 
     def apply_shims(self):
         """Decide what to do with the shim values."""
@@ -57,7 +63,7 @@ class SinopeClient(Client):
             # puts the currents in the way sinope likes them.
             # (space delimited floats)
             formatted_currents = (
-                " ".join(["{:5.4f}".format(current) for current in self.currents])
+                " ".join(["{:5.4f}".format(current/1000) for current in self.currents])
                     + os.linesep  # BUG: this doesn't seem to do anything??
             )
             self.shimming_file.write(formatted_currents)
@@ -115,20 +121,25 @@ class SinopeClient(Client):
         self.logger.debug(f"Recieved command tokens are {command_tokens}")
         try:
             if command_tokens[0] == "shim":
-                tile = [
-                    int(current_string) for current_string in command_tokens[1:]
-                ]  # the tile.
-                flooring = [0 for _ in range(self.channel_number)]  # the empty floor
+                try:
+                    tile = [
+                        int(current_string) for current_string in command_tokens[1:]
+                    ]  # the tile.
+                except ValueError:
+                    print("Invalid currents. (Did you accidentally set a letter?) Will use last currents.")
+                    tile = []
 
-                if not tile:  # if not passed with any arguments, all zeros.
-                    tile = [0]
+                if tile:  # if we have valid arguments:
+                    flooring = [0 for _ in range(self.channel_number)]  # the empty floor
 
-                # tiles the tile across the floor
-                # i think this is very clever, which probably means it's wrong
-                for idx, _ in enumerate(flooring):
-                    flooring[idx] = tile[idx % len(tile)]
+                    # tiles the tile across the floor
+                    # i think this is very clever, which probably means it's wrong
+                    for idx, _ in enumerate(flooring):
+                        flooring[idx] = tile[idx % len(tile)]
 
-                self.currents = flooring
+                    self.currents = flooring
+
+                print(f"Processed input into currents: {self.currents}")
                 self._set_selector_mode("w")
             elif command_tokens[0] == "start":
                 print("Shimming enabled.")
@@ -168,12 +179,6 @@ class SinopeClient(Client):
             )
         super().handle_command(command_string)
 
-    def close(self):
-        if JUPITER_PLUGGED_IN:
-            jupiter.stop()
-        self.shimming_file.close()
-        super().close()
-
 
 # check correct arguments (none)
 if len(sys.argv) != 1:
@@ -182,17 +187,14 @@ if len(sys.argv) != 1:
 
 
 name = "mrshim"
-# NOTE: client called sinope here because mrshim is reserved for the shim library
-# TODO: change that.
-sinope = SinopeClient(name)
+mrshim = SinopeClient(name)
 
 try:
-    while True:
-        sinope.main_loop()
-except KeyboardInterrupt:
-    print("Detected keyboard interrupt. Closing program.")
+    while mrshim.running:
+        mrshim.main_loop()
 finally:
     # very important that we stop shimming.
     if JUPITER_PLUGGED_IN:
-        mrshim.ShimStop()
-    sinope.close()
+        jupiter.stop()
+    mrshim.close()
+    sys.exit(0)

@@ -16,6 +16,9 @@ class CommandPrompt(Client):
         super().__init__(name)
         self.start_connection()
 
+    def close(self):
+        super()._close()
+
     def send_command(self):
         """Input a command string from the user, turn it into a request and send it to the server."""
         command_string = input("[shimmer]: ")
@@ -118,11 +121,11 @@ name = "console" + str(console_number)
 # create and register the command prompt.
 prompt = CommandPrompt(name)
 
-debugging = False
-
 try:
-    while True:
+    while prompt.running:
         prompt.main_loop()
 except KeyboardInterrupt:
     print("Exiting program!")
+finally:
     prompt.close()
+    sys.exit(0)

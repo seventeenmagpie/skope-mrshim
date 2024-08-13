@@ -17,7 +17,7 @@ The best tests are the one that get done! So no fancy testing framework because 
 - [ ] !echo
 - [ ] !egg
 - [ ] !debug - toggles debugging mode
-- [ ] !reader
+- [ ] !reader (and no entry)
 
 ## MRShim Commands
 With and without Jupiter plugged in:

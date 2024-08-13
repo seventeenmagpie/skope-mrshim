@@ -46,11 +46,12 @@ class ShimmingServer:
         self.debugging = reg.registry["server"].getboolean("debug")
         self.halting = False
 
+        self.stdout_handler = logging.StreamHandler(sys.stdout)
+        self.stdout_handler.setLevel(logging.WARNING)  # TODO: go through all debugs and set some of them to WARNs.
+        self.logger.addHandler(self.stdout_handler)
         if self.debugging:
+            self.stdout_handler.setLevel(logging.DEBUG)
             print("Debugging mode enabled.")
-            handler = logging.StreamHandler(sys.stdout)
-            handler.setLevel(logging.DEBUG)
-            self.logger.addHandler(handler)
 
     def _generate_id(self):
         """Generate the next unused internal id.
@@ -85,7 +86,15 @@ class ShimmingServer:
             print(f"Server {'is' if self.running else 'is not'} running.")
         elif command_tokens[0] == "halt":
             self.stop()
-        # TODO: add an 'enable debug mode' command
+        elif command_tokens[0] == "debug":
+            self.debugging = not self.debugging
+
+            if self.debugging:
+                print("Debugging mode enabled.")
+                self.stdout_handler.setLevel(logging.DEBUG)
+            else:
+                print("Debugging mode disabled.")
+                self.stdout_handler.setLevel(logging.WARNING)
 
     def accept_wrapper(self, sock):
         """Accept a new client's connection."""

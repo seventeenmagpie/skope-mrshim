@@ -92,10 +92,10 @@ class Client:
 
                 if self.debugging:
                     print("Debugging mode enabled.")
-                    self.logger.setLevel(logging.DEBUG)
+                    self.stdout_handler.setLevel(logging.DEBUG)
                 else:
                     print("Debugging mode disabled.")
-                    self.logger.setLevel(logging.WARNING)
+                    self.stdout_handler.setLevel(logging.WARNING)
 
         except IndexError:
             print(

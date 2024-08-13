@@ -24,8 +24,8 @@ class CommandPrompt(Client):
         command_string = input("[shimmer]: ")
 
         if not command_string:
-            print("Please enter a command!")
-            return 1
+            # if nothing is entered, then try and read
+            command_string = "!reader"
 
         command_tokens = parser.parse(command_string)
 
@@ -34,12 +34,16 @@ class CommandPrompt(Client):
             return 1
         else:
             if command_tokens[0] == "relay":
-                action = "relay"
-                packet = {
-                    "to": command_tokens[1],
-                    "from": self.name,
-                    "content": command_tokens[2],
-                }
+                try:
+                    action = "relay"
+                    packet = {
+                        "to": command_tokens[1],
+                        "from": self.name,
+                        "content": command_tokens[2],
+                    }
+                except IndexError:
+                    print('Usage: relay <to name> "<content>"')
+                    return 1
             else:
                 action = "command"
                 packet = {
@@ -48,20 +52,14 @@ class CommandPrompt(Client):
                     "content": command_tokens[0],
                 }
                 # NOTE: all server commands (currently) have zero arguments. is this appropriate?
-                # TODO: make entering no command (empty) behave like !reader
-                # but only once.
 
-            try:
-                self.logger.debug(f"Attempting to create request.")
-                self.logger.debug(f"Command tokens are {command_tokens}")
-                request = self.create_request(
-                    action,
-                    packet,
-                )
-                self.send_request(request)
-            except IndexError:
-                print('Usage: relay <to name> "<content>"')
-                return 1
+            self.logger.debug(f"Attempting to create request.")
+            self.logger.debug(f"Command tokens are {command_tokens}")
+            request = self.create_request(
+                action,
+                packet,
+            )
+            self.send_request(request)
         return 2
 
     def process_events(self, mask):
@@ -106,11 +104,13 @@ class CommandPrompt(Client):
             print(f"Dogs can't operate MRI scanners... \a")
             print(f"But cats can!")
         elif command_tokens[0] == "reader":
-            # TODO: make it so no command does this, but only gets a packet and does not wait indefinitely.
-            # idk how to do that.
-            # oh, it could check... if we are in the read state and then if we are, read.
+            # temporarily set the mask to read, and call main_loop to read any waiting input.
+            # then go back to whatever we were doing before.
             message = self.selector.get_key(self.socket).data
+            old_state = self.selector.get_key(self.socket).events
             self.selector.modify(self.socket, selectors.EVENT_READ, data=message)
+            self.main_loop()
+            self.selector.modify(self.socket, selectors.EVENT_WRITE, data=message)
 
         super().handle_command(command_string)
 

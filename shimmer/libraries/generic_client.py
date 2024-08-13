@@ -29,7 +29,7 @@ class Client:
 
         self.debugging = registry[self.name].getboolean("debug")
         self.stdout_handler = logging.StreamHandler(sys.stdout)
-        self.stdout_handler.setLevel(logging.WARNING)  # TODO: go through all debugs and set some of them to WARNs.
+        self.stdout_handler.setLevel(logging.WARNING)  
         self.logger.addHandler(self.stdout_handler)
         if self.debugging:
             self.stdout_handler.setLevel(logging.DEBUG)
@@ -60,7 +60,6 @@ class Client:
             self.selector, self.socket, self.server_address, empty_request, self
         )
         self.selector.register(self.socket, events, data=empty_message)
-        # print(self.selector.get_key(self.socket))
         self.logger.debug(f"Added {self.socket} to selector.")
 
     def send_request(self, request):
@@ -69,8 +68,7 @@ class Client:
         message = self.selector.get_key(self.socket).data
         message.request = request
         self.selector.modify(self.socket, events, data=message)
-        self.logger.debug(f"Added request to {self.name}")
-        self.logger.debug(f"That request is {message.request}")
+        self.logger.debug(f"Added request {message.request} to client {self.name}.")
 
     def handle_command(self, command_string):
         """Should be overridden by child class.
@@ -86,6 +84,7 @@ class Client:
                 print(f"{' '.join(command_tokens[1:])}")
             elif command_tokens[0] == "server_disconnect":
                 self.logger.info("Recieved disconnect command from server.")
+                print("Recieved disconnect instruction from the server.")
                 self.running = False 
             elif command_tokens[0] == "debug":
                 self.debugging = not self.debugging
@@ -140,7 +139,6 @@ class Client:
                 message.close()
 
     def _close(self):
-        print("Client ._close() called")
         try: 
             message = self.selector.get_key(self.socket).data
             message.close()

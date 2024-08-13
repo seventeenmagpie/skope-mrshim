@@ -78,10 +78,8 @@ class CommandPrompt(Client):
 
         Here, 'type' tells the packet (and then the server) what to do with the content, how to turn it into a header &c..
         """
-        self.logger.debug("inside create request")
         self.logger.debug(f"action is {action}, value is {value}")
         if action == "relay":
-            self.logger.debug("detected in relay section")
             return dict(
                 type="relay",
                 content=value,

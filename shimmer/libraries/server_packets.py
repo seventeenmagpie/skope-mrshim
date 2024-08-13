@@ -49,13 +49,11 @@ class Message:
 
     def _read(self):
         """Read from the open socket. Writes data into a buffer."""
-        self.server.logger.debug(f"trying my best to read from {self.sock}")
         try:
             # Should be ready to read
-            self.server.logger.debug("trying to use .recv")
             data = self.sock.recv(4096)
         except BlockingIOError:
-            self.server.logger.debug("blocking ioerror reached")
+            self.server.logger.debug("Blocking ioerror reached")
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
         else:  # then
@@ -80,7 +78,6 @@ class Message:
 
     def _write(self):
         """Write data to the socket."""
-        self.server.logger.debug("_write")
         if self._send_buffer:
             try:
                 # Should be ready to write
@@ -102,7 +99,6 @@ class Message:
                 # once whole response sent and buffer drained,
                 # clear protoheader, header and request, go back to waiting for read events.
                 if sent and not self._send_buffer:
-                    # print("sent and send buffer empty")
                     self._clear()
                     if self.disconnect: 
                         raise ClientDisconnect(self.addr)
@@ -161,9 +157,6 @@ class Message:
 
     def process_events(self, mask):
         """Read or write depending on state of socket."""
-        self.server.logger.debug(
-            f"process_events called, self.disconnect is {self.disconnect}"
-        )
         if mask & selectors.EVENT_READ:
             self.read()
         if mask & selectors.EVENT_WRITE:
@@ -192,7 +185,6 @@ class Message:
         if self.request or self.disconnect:
             self.server.logger.debug(f"self.request is {self.request}")
             if not self.response_created:
-                self.server.logger.debug("creating response")
                 self.create_response()
 
         self._write()
@@ -201,7 +193,6 @@ class Message:
         """Unregister the socket from the selector and closes the socket."""
         print(f"Closing connection to {self.addr}")
         try:
-            self.server.logger.debug("unregistering socket.")
             self.selector.unregister(self.sock)
         except Exception as e:
             print(f"Error: selector.unregister() exception for " f"{self.addr}: {e!r}")
@@ -241,14 +232,13 @@ class Message:
 
             if self.jsonheader["content-type"] == "relay":
                 to = self.jsonheader["to"]
-                self.to_socket = registry.get_socket(to)
+                self.to_socket = self.server.get_socket(to)
                 self.to_address = registry.get_address(to)
 
                 self.is_relayed_message = True
 
     def process_request(self):
         """Process the actual content of the message."""
-        self.server.logger.debug("processing request")
 
         content_len = self.jsonheader["content-length"]
 
@@ -269,13 +259,11 @@ class Message:
                 f"Received request {self.request!r} from {self.addr}"
             )
         elif self.jsonheader["content-type"] == "command":
-            self.server.logger.debug("Command packet recieved.")
 
             command = self.request
             print(f"Server got command {command}")
 
             if not command[0] == "!":  # server commands don't start with !
-                # print("server command recieved")
                 self._set_selector_events_mask(
                     "w"
                 )  # set here because we never reach bottom of this function.
@@ -310,7 +298,6 @@ class Message:
         optional_header_parts = {}
         # when a client asks to disconnect, we need to acknowledge and then tell it to.
         if self.disconnect:
-            self.server.logger.debug("creating disconnect response")
             response_type = "relay"
             content = {"result": f"!server_disconnect"}
 
@@ -329,7 +316,7 @@ class Message:
         else:
             response = self._create_response_binary_content()
 
-        self.server.logger.debug(f"created response is {response}")
+        self.server.logger.debug(f"Created response is {response}")
         message = self._create_message(optional_header_parts, **response)
         self.response_created = True
         self._send_buffer += message

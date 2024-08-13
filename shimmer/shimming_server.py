@@ -34,6 +34,7 @@ class ShimmingServer:
         self.name = "server"
 
         self.address = reg.get_address("server")
+        self.clients_on_registry = {}
         self.host = self.address[0]
         self.port = self.address[1]
 
@@ -46,11 +47,14 @@ class ShimmingServer:
         self.halting = False
 
         self.stdout_handler = logging.StreamHandler(sys.stdout)
-        self.stdout_handler.setLevel(logging.WARNING)  # TODO: go through all debugs and set some of them to WARNs.
+        self.stdout_handler.setLevel(logging.WARNING)
         self.logger.addHandler(self.stdout_handler)
         if self.debugging:
             self.stdout_handler.setLevel(logging.DEBUG)
             print("Debugging mode enabled.")
+
+    def get_socket(self, name):
+        return self.clients_on_registry[name].socket
 
     def _generate_id(self):
         """Generate the next unused internal id.
@@ -79,7 +83,7 @@ class ShimmingServer:
         command_tokens = parse(command_string)
         if command_tokens[0] == "list":
             print("Listing connected clients:")
-            for name, client in reg.clients_on_registry.items():
+            for name, client in self.clients_on_registry.items():
                 print(f" - {name}({client.id}) @ {client.addr[0]}:{client.addr[1]},")
         elif command_tokens[0] == "status":
             print(f"Server {'is' if self.running else 'is not'} running.")
@@ -122,7 +126,7 @@ class ShimmingServer:
         # create a GenericClient object for keeping track of who is connected.
         generated_id = self._generate_id()
         new_client = ModelClient(conn, addr, generated_id, role)
-        reg.clients_on_registry[role] = new_client
+        self.clients_on_registry[role] = new_client
 
         # add the new message to the selector, we're ready to listen to it.
         self.sel.register(conn, selectors.EVENT_READ, data=message)
@@ -164,24 +168,21 @@ class ShimmingServer:
 
     def _remove_from_registry(self, address):
         """Removes a client from the connected clients registry and deletes its model object."""
-        self.logger.debug("Started removing client.")
-        for name, client in reg.clients_on_registry.items():
+        for name, client in self.clients_on_registry.items():
             if str(client.addr) == str(address):
                 print(f"Removed client {client.name} which was at {client.addr}")
                 del client
                 break
-        del reg.clients_on_registry[name]
-        self.logger.debug("Finished removing client.")
+        del self.clients_on_registry[name]
 
     def stop(self):
         # the first time this function is called, self.halting won't have been set.
-        self.logger.debug("Inside self.stop()")
-        self.logger.debug(f"Clients remaining to remove are: {reg.clients_on_registry}")
+        self.logger.debug(f"Clients remaining to remove are: {self.clients_on_registry}")
         self.halting = True
 
-        if reg.clients_on_registry:  # there are still clients online
+        if self.clients_on_registry:  # there are still clients online
             # set them up for disconnect
-            for name, model_client in reg.clients_on_registry.items():
+            for name, model_client in self.clients_on_registry.items():
                 try:
                     message = self.sel.get_key(model_client.socket).data
                     message.disconnect = True
@@ -192,7 +193,7 @@ class ShimmingServer:
                     print(f"Unable to close client {name}")
                     print(e)
         else:  # once we have disconnected everybody, then we can close
-            self.logger.debug("Closing server.")
+            print("Closing server.")
             self.lsock.close()
             self.sel.close()
             self.running = False

@@ -30,7 +30,6 @@ class SinopeClient(Client):
         events = selectors.EVENT_READ
         message = Message(self.selector, self.socket, self.server_address, None, self)
         self.selector.modify(self.socket, events, data=message)
-        self.logger.debug(f"Added packet to {self.name}")
 
         # setting up the file to write shim currents to.
         # w mode clears the old shims
@@ -41,7 +40,6 @@ class SinopeClient(Client):
             self.channel_number = jupiter.channel_number()
 
     def close(self):
-        print("mrshim .close() called")
         if JUPITER_PLUGGED_IN:
             jupiter.stop()
         self.shimming_file.close()
@@ -55,7 +53,7 @@ class SinopeClient(Client):
             print(f"Shimming is disabled. Setting currents to 0.")
             self.currents = [0 for _ in range(self.channel_number)]
 
-        self.logger.debug(f"{self.name} is applying currents: {self.currents}")
+        print(f"{self.name} is applying currents: {self.currents}")
         if JUPITER_PLUGGED_IN:
             self.send_shims_to_jupiter()
         else:
@@ -93,10 +91,8 @@ class SinopeClient(Client):
 
         Here, 'type' tells the packet (and then the server) what to do with the content, how to turn it into a header &c..
         """
-        self.logger.debug("inside create request")
         self.logger.debug(f"action is {action}, value is {value}")
         if action == "relay":
-            self.logger.debug("detected in relay section")
             return dict(
                 type="relay",
                 encoding="utf-8",
@@ -138,7 +134,6 @@ class SinopeClient(Client):
 
                     self.currents = flooring
 
-                print(f"Processed input into currents: {self.currents}")
             elif command_tokens[0] == "start":
                 print("Shimming enabled.")
                 self.shimming = True

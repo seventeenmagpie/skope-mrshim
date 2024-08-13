@@ -1,5 +1,6 @@
 import ctypes
-# import the dll and explain which python types go to which c_types.
+
+# import the dll and tell python which Python types go to which c_types.
 mrshim = ctypes.cdll.LoadLibrary(r".\libshim.dll")  # path to libshim.dll
 mrshim.ShimStart.argtypes = ctypes.c_char_p, ctypes.c_int
 c_int32_p = ctypes.POINTER(ctypes.c_int32)
@@ -67,7 +68,6 @@ def disable_shims():
 
 def soft_reset():
     """Close and re-open the connection to Jupiter without pausing shimming."""
-    print("Resetting connection with Jupiter.")
     mrshim.shim_soft_close()
     start_connection()
 

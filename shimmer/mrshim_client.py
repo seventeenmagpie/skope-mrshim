@@ -140,7 +140,6 @@ class SinopeClient(Client):
                     self.currents = flooring
 
                 print(f"Processed input into currents: {self.currents}")
-                self._set_selector_mode("w")
             elif command_tokens[0] == "start":
                 print("Shimming enabled.")
                 self.shimming = True

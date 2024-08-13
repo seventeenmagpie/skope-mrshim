@@ -35,18 +35,6 @@ class Client:
             self.stdout_handler.setLevel(logging.DEBUG)
             print("Debugging mode enabled.")
 
-
-    def _set_selector_mode(self, mode):
-        """Set whether this client's selector entry should select for read/write or both."""
-        if mode == "r":
-            events = selectors.EVENT_READ
-        elif mode == "w":
-            events = selectors.EVENT_WRITE
-        elif mode == "rw":
-            events = selectors.EVENT_READ | selectors.EVENT_WRITE
-        else:
-            raise ValueError(f"Invalid events mask mode {mode!r}.")
-
     def start_connection(self):
         """Try and make a connection to the server, add this socket to the selector."""
         print(f"Starting connection to {self.server_address}")
@@ -88,6 +76,9 @@ class Client:
         """Should be overridden by child class.
 
         Leading exclamation mark is removed in packet code, before calling."""
+        if not command_string:
+            return
+
         self.logger.info(f"Client {self.name} is handling command: {command_string}")
         command_tokens = parse(command_string)
         try:
@@ -114,15 +105,12 @@ class Client:
     def process_events(self, mask):
         """Called by the clients packet object either before or after its own read/write methods.
 
-        The packet will call this with a read mask *after* its own read has been executed, because usually the client will want to do something with the data that has been read.
-
-        The packet will call this with a write mask *before* its own write has been executed because usually the client will want to get something in for the packet to write.
-
-        Thus the client reads before the packet writes and writes after the packet reads.
-
-        I have kept the flags backwards here rather than keeping their conventional meanings and changing the flags inside the client's process_events because I felt like this was easier to understand because this will be seen less by a developer.
-
-        But now I've explained it to myself I feel slightly different.
+        The calling order is as follows:
+        1. Packet reads from socket,
+        2. Client 'reads' (probably does something with that data),
+        3. Client 'writes' (gets a command or some new data to send over the socket)
+        4. Packet writes.
+        Steps 1 and 4 can be skipped by returning a new mask.
         """
 
         if mask & selectors.EVENT_READ:

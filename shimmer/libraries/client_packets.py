@@ -122,6 +122,12 @@ class Message:
         """Use selector state to start read or write.
 
         Usual pattern is packet reads -> client does something with that data, or client gets some data -> packet writes it.
+
+        The calling order is as follows:
+        1. Packet reads from socket,
+        2. Client 'reads' (probably does something with that data),
+        3. Client 'writes' (gets a command or some new data to send over the socket)
+        4. Packet writes.
         """
 
         # if statements are repeated many times because clients may change these variables duing their own processing of events.

@@ -31,7 +31,6 @@ class CommandPrompt(Client):
 
         if command_tokens[0][0] == "!":
             self.handle_command(command_string[1:])
-            self._set_selector_mode("r")
             return 1
         else:
             if command_tokens[0] == "relay":
@@ -98,6 +97,9 @@ class CommandPrompt(Client):
             pass  # action is always one of either relay or command. is set by code.
 
     def handle_command(self, command_string):
+        if not command_string:
+            return
+
         command_tokens = parser.parse(command_string)
         self.logger.debug(f"Recieved command tokens are {command_tokens}")
         if command_tokens[0] == "egg":

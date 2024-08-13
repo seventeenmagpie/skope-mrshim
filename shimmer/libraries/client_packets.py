@@ -4,7 +4,6 @@ import selectors
 import struct
 import sys
 import logging
-import pdb
 
 from libraries.parser import parse
 

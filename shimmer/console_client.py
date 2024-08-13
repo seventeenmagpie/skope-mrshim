@@ -50,6 +50,7 @@ class CommandPrompt(Client):
                 }
                 # NOTE: all server commands (currently) have zero arguments. is this appropriate?
                 # TODO: make entering no command (empty) behave like !reader
+                # but only once.
 
             try:
                 self.logger.debug(f"Attempting to create request.")
@@ -103,6 +104,9 @@ class CommandPrompt(Client):
             print(f"Dogs can't operate MRI scanners... \a")
             print(f"But cats can!")
         elif command_tokens[0] == "reader":
+            # TODO: make it so no command does this, but only gets a packet and does not wait indefinitely.
+            # idk how to do that.
+            # oh, it could check... if we are in the read state and then if we are, read.
             message = self.selector.get_key(self.socket).data
             self.selector.modify(self.socket, selectors.EVENT_READ, data=message)
 

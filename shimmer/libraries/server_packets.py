@@ -6,8 +6,13 @@ import sys
 
 import libraries.registry as registry
 from .parser import parse
-from .exceptions import ClientDisconnect
 
+class ClientDisconnect(Exception):
+    """Raised when a client disconnects.
+
+    Called after the socket is closed and deregistered, so the main server process can stop keeping track of it.
+    """
+    pass
 
 class Message:
     def __init__(self, selector, sock, addr, server):

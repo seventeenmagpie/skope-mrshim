@@ -9,8 +9,7 @@ import logging
 
 import libraries.registry as reg
 from libraries.parser import parse
-from libraries.server_packets import Message
-from libraries.exceptions import ClientDisconnect
+from libraries.server_packets import Message, ClientDisconnect
 from libraries.printers import selector_printer
 
 

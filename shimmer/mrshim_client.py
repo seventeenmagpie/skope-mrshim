@@ -5,7 +5,6 @@ import sys
 import traceback
 import os  # for os.linesep that one time
 
-from libraries.exceptions import ClientDisconnect
 import libraries.parser as parser
 from libraries.generic_client import Client
 from libraries.client_packets import Message

@@ -57,7 +57,6 @@ class Message:
         """Read from the socket and add to the read buffer.
 
         Called repeatedly by .read()"""
-        self.client.logger.debug("_read")
         try:
             # Should be ready to read
             data = self.sock.recv(4096)

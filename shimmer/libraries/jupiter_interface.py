@@ -29,10 +29,10 @@ def display_status():
     # print temperatures
     # the list finangling is necessary to convert from the c pointer to a Python list
     temp = mrshim.ShimGetAttr(6)
-    # TODO: implement conversion from arbitrary units
-    temperatures = [temp[i] for i in range(channel_number)]
+    # NOTE: conversion is from arbitrary units, provided by Paul at MRShim
+    temperatures = [((temp[i] * 0.8 - 400 )/19.5) for i in range(channel_number)]
     temperatures_string = ' '.join([str(temp) for temp in temperatures])
-    print(f"Coil temperatures are [au]: {temperatures_string}")
+    print(f"Amplifier circuit temperatures are ['C]: {temperatures_string}")
     # print currents
     current = mrshim.ShimGetAttr(0)
     currents = [current[i] for i in range(channel_number)]

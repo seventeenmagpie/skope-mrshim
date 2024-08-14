@@ -53,7 +53,7 @@ class ShimmingServer:
             self.stdout_handler.setLevel(logging.DEBUG)
             print("Debugging mode enabled.")
 
-    def get_socket(self, name):
+    def _get_socket(self, name):
         return self.clients_on_registry[name].socket
 
     def _generate_id(self):

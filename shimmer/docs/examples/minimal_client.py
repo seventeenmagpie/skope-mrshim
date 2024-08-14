@@ -7,12 +7,14 @@ class MinimalClient(Client):
     def __init__(self, name):
         super().__init__(name)
         # specific initiation goes here
+        # self.start_connection() starts the connection using the address and port in the .ini
 
     def close(self):
         # specific closing steps go here
-        super()._close()
+        super().close()        
 
 client = MinimalClient("mini")
+# you will need to add a [mini] heading to the .ini file and give an address and port.
 
 try:
     while self.running:

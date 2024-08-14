@@ -232,7 +232,7 @@ class Message:
 
             if self.jsonheader["content-type"] == "relay":
                 to = self.jsonheader["to"]
-                self.to_socket = self.server.get_socket(to)
+                self.to_socket = self.server._get_socket(to)
                 self.to_address = registry.get_address(to)
 
                 self.is_relayed_message = True

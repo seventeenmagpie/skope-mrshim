@@ -43,7 +43,7 @@ class SinopeClient(Client):
         if JUPITER_PLUGGED_IN:
             jupiter.stop()
         self.shimming_file.close()
-        super()._close()
+        super().close()
 
     def apply_shims(self):
         """Decide what to do with the shim values."""

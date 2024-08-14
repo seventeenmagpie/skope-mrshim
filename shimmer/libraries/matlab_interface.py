@@ -15,7 +15,7 @@ class MatlabClient(Client):
         super().__init__(name)
 
     def close(self):
-        super()._close()
+        super().close()
         sys.exit(0)
 
     def send_currents(self, currents):

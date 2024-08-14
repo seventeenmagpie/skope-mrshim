@@ -70,6 +70,55 @@ class Client:
         self.selector.modify(self.socket, events, data=message)
         self.logger.debug(f"Added request {message.request} to client {self.name}.")
 
+    def process_events(self, mask):
+        """Called by the clients packet object either before or after its own read/write methods.
+
+        The calling order is as follows:
+        1. Packet reads from socket,
+        2. Client 'reads' (probably does something with that data),
+        3. Client 'writes' (gets a command or some new data to send over the socket)
+        4. Packet writes.
+        Steps 1 and 4 can be skipped by returning a new mask.
+        """
+
+        if mask & selectors.EVENT_READ:
+            # ALWAYS CALLED AFTER THE PACKET READS
+            self.logger.debug("Client is doing something after the packet read.")
+        if mask & selectors.EVENT_WRITE:
+            # ALWAYS CALLED BEFORE THE PACKET WRITES
+            self.logger.debug("Client is doing something before the packet wrote.")
+
+        return mask
+
+    def main_loop(self):
+        events = self.selector.select(
+            timeout=0
+        )  # get waiting io events. timeout = 0 to wait without blocking.
+
+        if self.debugging:
+            selector_printer(self.selector, events)
+
+        for key, mask in events:
+            message = key.data
+            try:
+                message.process_events(mask)
+            except Exception:
+                print(
+                    f"Main: Error: Exception for {message.addr}:\n"
+                    f"{traceback.format_exc()}"
+                )
+                message.close()
+
+    def close(self):
+        try: 
+            message = self.selector.get_key(self.socket).data
+            message.close()
+        except Exception as e:
+            print(e)
+        finally:
+            self.selector.close()
+            print(f"Closed {self.name} client. Goodbye \\o")
+
     def handle_command(self, command_string):
         """Should be overridden by child class.
 
@@ -100,50 +149,3 @@ class Client:
             print(
                 f"Incorrect number of arguments for command {command_tokens[0]}. Look up correct usage in manual."
             )
-
-    def process_events(self, mask):
-        """Called by the clients packet object either before or after its own read/write methods.
-
-        The calling order is as follows:
-        1. Packet reads from socket,
-        2. Client 'reads' (probably does something with that data),
-        3. Client 'writes' (gets a command or some new data to send over the socket)
-        4. Packet writes.
-        Steps 1 and 4 can be skipped by returning a new mask.
-        """
-
-        if mask & selectors.EVENT_READ:
-            self.logger.debug("Client is doing something after the packet read.")
-        if mask & selectors.EVENT_WRITE:
-            self.logger.debug("Client is doing something before the packet wrote.")
-
-        return mask
-
-    def main_loop(self):
-        events = self.selector.select(
-            timeout=0
-        )  # get waiting io events. timeout = 0 to wait without blocking.
-
-        if self.debugging:
-            selector_printer(self.selector, events)
-
-        for key, mask in events:
-            message = key.data
-            try:
-                message.process_events(mask)
-            except Exception:
-                print(
-                    f"Main: Error: Exception for {message.addr}:\n"
-                    f"{traceback.format_exc()}"
-                )
-                message.close()
-
-    def _close(self):
-        try: 
-            message = self.selector.get_key(self.socket).data
-            message.close()
-        except Exception as e:
-            print(e)
-        finally:
-            self.selector.close()
-            print(f"Closed {self.name} client. Goodbye \\o")

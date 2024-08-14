@@ -17,7 +17,7 @@ class CommandPrompt(Client):
         self.start_connection()
 
     def close(self):
-        super()._close()
+        super().close()
 
     def send_command(self):
         """Input a command string from the user, turn it into a request and send it to the server."""

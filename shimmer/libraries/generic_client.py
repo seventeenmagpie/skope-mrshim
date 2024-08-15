@@ -8,6 +8,7 @@ from libraries.client_packets import Message
 from libraries.parser import parse
 from libraries.printers import selector_printer
 
+
 class Client:
     """Represents a generic client object, having a socket, current packet and internal id associated with it."""
 
@@ -29,7 +30,7 @@ class Client:
 
         self.debugging = registry[self.name].getboolean("debug")
         self.stdout_handler = logging.StreamHandler(sys.stdout)
-        self.stdout_handler.setLevel(logging.WARNING)  
+        self.stdout_handler.setLevel(logging.WARNING)
         self.logger.addHandler(self.stdout_handler)
         if self.debugging:
             self.stdout_handler.setLevel(logging.DEBUG)
@@ -110,7 +111,7 @@ class Client:
                 message.close()
 
     def close(self):
-        try: 
+        try:
             message = self.selector.get_key(self.socket).data
             message.close()
         except Exception as e:
@@ -134,7 +135,7 @@ class Client:
             elif command_tokens[0] == "server_disconnect":
                 self.logger.info("Recieved disconnect command from server.")
                 print("Recieved disconnect instruction from the server.")
-                self.running = False 
+                self.running = False
             elif command_tokens[0] == "debug":
                 self.debugging = not self.debugging
 

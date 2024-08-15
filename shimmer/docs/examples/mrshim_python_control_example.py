@@ -1,8 +1,8 @@
-# ensure this file is in the same directory as jupiter_interface.py or this import will fail!
+# ensure this file is in the same directory as jupiter_interface.py and libshim.dll or this import will fail!
 import jupiter_interface as jupiter
 
 # start the connection
-jupiter.start_connection()
+channel_count = jupiter.start_connection()
 
 # display status information
 jupiter.display_status()
@@ -12,10 +12,10 @@ jupiter.enable_shims()
 
 # set some shim currents
 # must be done after enable_shims() otherwise no currents are set!
-jupiter.set_shim_currents([100] * 24)
+jupiter.set_shim_currents([100] * channel_count)
 
 for i in range(2, 10):
-    jupiter.set_shim_currents([i*100] * 24)
+    jupiter.set_shim_currents([i*100] * channel_count)
     jupiter.display_status()
 
 # set currents to zero and stop shimming

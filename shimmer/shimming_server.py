@@ -151,7 +151,11 @@ class ShimmingServer:
                     self.current_message.process_events(mask)
                 # during processing, a client may disconnect.
                 # we should handle that nicely
-                except (RuntimeError, ConnectionResetError, ClientDisconnect) as disconnected_address:
+                except (
+                    RuntimeError,
+                    ConnectionResetError,
+                    ClientDisconnect,
+                ) as disconnected_address:
                     print("Client disconnected.")
                     self._remove_from_registry(disconnected_address)
                     self.current_message.close()
@@ -177,7 +181,9 @@ class ShimmingServer:
 
     def stop(self):
         # the first time this function is called, self.halting won't have been set.
-        self.logger.debug(f"Clients remaining to remove are: {self.clients_on_registry}")
+        self.logger.debug(
+            f"Clients remaining to remove are: {self.clients_on_registry}"
+        )
         self.halting = True
 
         if self.clients_on_registry:  # there are still clients online

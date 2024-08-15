@@ -7,12 +7,15 @@ import sys
 import libraries.registry as registry
 from .parser import parse
 
+
 class ClientDisconnect(Exception):
     """Raised when a client disconnects.
 
     Called after the socket is closed and deregistered, so the main server process can stop keeping track of it.
     """
+
     pass
+
 
 class Message:
     def __init__(self, selector, sock, addr, server):
@@ -100,7 +103,7 @@ class Message:
                 # clear protoheader, header and request, go back to waiting for read events.
                 if sent and not self._send_buffer:
                     self._clear()
-                    if self.disconnect: 
+                    if self.disconnect:
                         raise ClientDisconnect(self.addr)
                         # server closes packet for us, after removing this client from the registry
 

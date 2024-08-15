@@ -13,7 +13,10 @@ JUPITER_PLUGGED_IN = False  # set to True to enable Jupiter functionality.
 if JUPITER_PLUGGED_IN:
     import libraries.jupiter_interface as jupiter
 else:
-    print("NOTE: JUPITER_PLUGGED_IN is not True, Jupiter functionality is disabled and this will write to shims.txt. See line 13 of mrshim_client.py")
+    print(
+        "NOTE: JUPITER_PLUGGED_IN is not True, Jupiter functionality is disabled and this will write to shims.txt. See line 13 of mrshim_client.py"
+    )
+
 
 class SinopeClient(Client):
     """A class for Sinope. Handles !shim commands and writes shim currents to the file."""
@@ -36,8 +39,7 @@ class SinopeClient(Client):
         self.shimming_file = open("shims.txt", "w", encoding="utf-8")
 
         if JUPITER_PLUGGED_IN:
-            jupiter.start_connection() 
-            self.channel_number = jupiter.channel_number()
+            self.channel_number = jupiter.start_connection()
 
     def close(self):
         if JUPITER_PLUGGED_IN:
@@ -53,15 +55,16 @@ class SinopeClient(Client):
             print(f"Shimming is disabled. Setting currents to 0.")
             self.currents = [0 for _ in range(self.channel_number)]
 
-        print(f"{self.name} is applying currents: {self.currents}")
         if JUPITER_PLUGGED_IN:
             self.send_shims_to_jupiter()
         else:
             # puts the currents in the way sinope likes them.
             # (space delimited floats)
             formatted_currents = (
-                " ".join(["{:5.4f}".format(current/1000) for current in self.currents])
-                    + os.linesep  # BUG: this doesn't seem to do anything??
+                " ".join(
+                    ["{:5.4f}".format(current / 1000) for current in self.currents]
+                )
+                + os.linesep  # BUG: this doesn't seem to do anything??
             )
             self.shimming_file.write(formatted_currents)
             self.shimming_file.flush()
@@ -69,9 +72,10 @@ class SinopeClient(Client):
     def send_shims_to_jupiter(self):
         jupiter.set_shim_currents(self.currents)
 
+        # TODO: add a short delay here
         if self.print_status:
             jupiter.display_status()
-        
+
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
         # this client doesn't actually do anything to the server itself.
@@ -121,11 +125,15 @@ class SinopeClient(Client):
                         int(current_string) for current_string in command_tokens[1:]
                     ]  # the tile.
                 except ValueError:
-                    print("Invalid currents. (Did you accidentally set a letter?) Will use last currents.")
+                    print(
+                        "Invalid currents. (Did you accidentally set a letter?) Will use last currents."
+                    )
                     tile = []
 
                 if tile:  # if we have valid arguments:
-                    flooring = [0 for _ in range(self.channel_number)]  # the empty floor
+                    flooring = [
+                        0 for _ in range(self.channel_number)
+                    ]  # the empty floor
 
                     # tiles the tile across the floor
                     # i think this is very clever, which probably means it's wrong
@@ -140,7 +148,7 @@ class SinopeClient(Client):
 
                 if JUPITER_PLUGGED_IN:
                     jupiter.enable_shims()
-                    
+
             elif command_tokens[0] == "stop":
                 print("Shimming disabled.")
                 self.shimming = False
@@ -150,11 +158,13 @@ class SinopeClient(Client):
 
             elif command_tokens[0] == "status":
                 if JUPITER_PLUGGED_IN:
-                    self.print_status = not self.print_satus
+                    self.print_status = not self.print_status
                     # toggle printing status information
                 else:
                     print("JUPITER_PLUGGED_IN is not True, can't do anything.")
-                    print("Either this constant is set to False in mrshim_client.py, or the connection failed in the first instance.")
+                    print(
+                        "Either this constant is set to False in mrshim_client.py, or the connection failed in the first instance."
+                    )
 
             elif command_tokens[0] == "reset":
                 print("Attempting soft reset of Jupiter connection.")
@@ -162,7 +172,9 @@ class SinopeClient(Client):
                     jupiter.soft_reset()
                 else:
                     print("JUPITER_PLUGGED_IN is not True, can't do anything.")
-                    print("Either this constant is set to False in mrshim_client.py, or the connection failed in the first instance.")
+                    print(
+                        "Either this constant is set to False in mrshim_client.py, or the connection failed in the first instance."
+                    )
 
             elif command_tokens[0] == "egg":
                 print(f"Step aside Mr. Beat! \a")

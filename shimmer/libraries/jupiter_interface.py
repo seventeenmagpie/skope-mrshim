@@ -1,7 +1,8 @@
 import ctypes
 
 # import the dll and tell python which Python types go to which c_types.
-mrshim = ctypes.cdll.LoadLibrary(r".\libraries\libshim.dll")  # path to libshim.dll
+mrshim = ctypes.cdll.LoadLibrary(r".\libshim.dll")  
+# path *from where python is ran* to libshim.dll
 mrshim.ShimStart.argtypes = ctypes.c_char_p, ctypes.c_int
 c_int32_p = ctypes.POINTER(ctypes.c_int32)
 mrshim.ShimSetCurr.argtypes = c_int32_p, ctypes.c_int, ctypes.c_bool

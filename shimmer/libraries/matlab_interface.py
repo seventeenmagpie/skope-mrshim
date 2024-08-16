@@ -32,7 +32,7 @@ class MatlabClient(Client):
         # mismatch in dictionary forms because
         # we want to use the python keyword 'from' as a key.
         value = {
-            "to": "sinope",
+            "to": "mrshim",
             "from": "matlab",
             "content": f"!shim {currents_string}",
         }

@@ -17,7 +17,8 @@ shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrs
 addpath([shimmer_directory, 'libraries/'])
 addpath([shimmer_directory, 'libraries/methods/']);
 data_folder = [shimmer_directory , 'data/'];
-skope_temp = [shimmer_directory, 'data/skope_temp'];
+% TODO: hard code this
+skope_temp = [shimmer_directory, 'data\skope_temp'];
 
 % adds libraries to the python path
 % From: https://uk.mathworks.com/help/matlab/matlab_external/call-user-defined-custom-module.html

@@ -11,7 +11,7 @@
  - [x] a "wtf is this" slide at the very start,
 ## Figures Needed
  - [x] Big network diagram
- - [ ] ifconfig output
- - [ ] screenshot of selected calibration in SkopeFM
- - [ ] labelled diagram of correct file directory
+ - [x] ifconfig output
+ - [x] screenshot of selected calibration in SkopeFM
+ - [x] labelled diagram of correct file directory
  - [ ] good and bad netstat screenshots,

@@ -1,13 +1,7 @@
 % 2017 Skope Magnetic Resonance Technologies
 
-function [Data, ScanHeader] = getData(FID,PortBase)
+function [Data, ScanHeader] = getDataByAq(FID,PortBase)
 %GETDATA Get data from the TCP server
-
-% TODO: change so this gets only a single acquisition at a time
-% rather than all the acquisitions of a scan at the end
-% how to do this?
-% 1. use a separate function to get the scan header and then pass that in each time this is called.
-% 2. Terminate = true; after each time we get a whole block
 
 %% Initialise
 Data         = [];  	% Received data

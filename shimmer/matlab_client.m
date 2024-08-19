@@ -5,10 +5,10 @@ clc;
 % COMMENT OUT THE INCORRECT LINES
 % SET PATH TO SHIMMER DIRECTORY
 % ON MAGS' LAPTOP
-shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrshim/shimmer/';
+%shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrshim/shimmer/';
 
 % ON SKOPE COMPUTER
-%shimmer_directory = 'C:/Users/skope/Documents/shimmer/';
+shimmer_directory = 'C:/Users/skope/Documents/shimmer-newest/';
 
 % ON MRSHIMS COMPUTER
 %shimmer_directory = N/A;
@@ -17,8 +17,6 @@ shimmer_directory = '/home/mags/Documents/studies/uni/summer_placement/skope-mrs
 addpath([shimmer_directory, 'libraries/'])
 addpath([shimmer_directory, 'libraries/methods/']);
 data_folder = [shimmer_directory , 'data/'];
-% TODO: hard code this
-skope_temp = [shimmer_directory, 'data\skope_temp'];
 
 % adds libraries to the python path
 % From: https://uk.mathworks.com/help/matlab/matlab_external/call-user-defined-custom-module.html
@@ -138,14 +136,14 @@ spharms(4, :) = probe_y;
 %% get scan def and edit parameters
 
 % retrieve JSON Scan Definition (getShortScanDef)
-shortScanDef = sendCommand(connCtrl, 'getShortScanDef' );
-disp(shortScanDef)
+%shortScanDef = sendCommand(connCtrl, 'getShortScanDef' );
+%disp(shortScanDef)
 
 % modify short scan definition (setShortScanDef)
 shortScanDef.scanName = 'shimmer';
 shortScanDef.scanDescription = 'Dynamic shimming via Shimmer (MMCT, 2024)';
-shortScanDef.nrDynamics = 2;  % skope needs at least 2 dynamics to do the bfit.
-shortScanDef.dynamicTR = 0.3;  % want this to be as short a possible for lowest latency
+shortScanDef.nrDynamics = 100;  % skope needs at least 2 dynamics to do the bfit.
+shortScanDef.dynamicTR = 0.5;  % want this to be as short a possible for lowest latency
 % another parameter to look at is interleaving.
 % all paramters are described in the manual and the names in shortScanDef
 % are in the TCP_control_client.m example.
@@ -158,9 +156,9 @@ shortScanDef.Bfit = true;
 disp('Setting short scan paramaters.');
 sendCommand(connCtrl, 'setShortScanDef', shortScanDef );
 
-% set project path
-disp('Setting project path. ');
-sendCommand(connCtrl, 'setProjectPath', skope_temp );
+% retrieve JSON Scan Definition (getShortScanDef)
+shortScanDef = sendCommand(connCtrl, 'getShortScanDef' );
+disp(shortScanDef)
 
 % get project path
 disp('Bfit scan data will be stored at:');
@@ -169,30 +167,32 @@ disp(projectPath)
 %% create figure 
 figure(1)
 hold on  % so we can append data.
+sendCommand(connCtrl, 'startScan' );
 
 %% start scan
 disp('Beginning scan loop.');
 keep_going = [];
 count = 1;
-previous_data = [];
+previous_data = zeros(16, 1);
+scanHeader = [];
 while isempty(keep_going)
-    disp(count)
-    sendCommand(connCtrl, 'startScan' );
-
     % receive B fit data
-    disp("Recieving data.")
-    [data, scanHeader] = getData(connData,portData);
-    previous_data = [previous_data, mean(data, 2)];
-    plot([1:count], previous_data)
+    [data, scanHeader] = getDataByBlock(connData, PortBase, scanHeader);
+    data = squeeze(squeeze(data));
+    previous_data = [previous_data, data];
+    plot(previous_data')
 
     % check we have data, if not, skip the processing and acquire it again
     if 1 && all(all(data == 0))
-        disp("No data recieved. Trying again.")
+        %disp("No data recieved. Trying again.")
         continue  % goes to next iteration of loop
+    else
+        disp("Recieved data.")
+        disp(count)
     end
     
     disp("Calculating currents.")
-   
+
     currents = calculate_currents(data, coil_coefficients, spharms);
 
     disp("Currents are: [mA]")
@@ -203,7 +203,7 @@ while isempty(keep_going)
     client.send_currents(int32(currents'));
     disp("Currents sent.")
 
-    keep_going = input('Enter anything to stop. ');
+    %keep_going = input('Enter anything to stop. ');
     count = count +1;
 end
 

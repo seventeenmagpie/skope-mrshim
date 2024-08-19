@@ -1,0 +1,5 @@
+Changes and improvements:
+ - Data is now fetched from Skope block-by-block rather than per acquisition,
+ - The removed client identifier was falling through if it couldn't match a client,
+ - Implemented a "!hold" command in the MRShim client that just means the same currents are applied, regardless of what !shim commands are sent,
+ - Documented the above,

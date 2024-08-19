@@ -112,7 +112,6 @@ class ShimmingServer:
         # work out which role the newly connected client is by comparing against the directory registry file.
         for role in reg.registry.sections():
             reg_address = reg.get_address(role)
-            name_assigned = False
 
             if (addr[0] == reg_address[0]) and (addr[1] == reg_address[1]):
                 name_assigned = True
@@ -172,12 +171,17 @@ class ShimmingServer:
 
     def _remove_from_registry(self, address):
         """Removes a client from the connected clients registry and deletes its model object."""
+        name_assigned = False  # otherwise will fall through to remove last client on the registry.
+        # could also solve by using a copy, the del has to be outside the loop because we cant change the size of the dict we are looping over.
         for name, client in self.clients_on_registry.items():
             if str(client.addr) == str(address):
                 print(f"Removed client {client.name} which was at {client.addr}")
+                name_assigned = True
                 del client
                 break
-        del self.clients_on_registry[name]
+
+        if name_assigned:
+            del self.clients_on_registry[name]
 
     def stop(self):
         # the first time this function is called, self.halting won't have been set.

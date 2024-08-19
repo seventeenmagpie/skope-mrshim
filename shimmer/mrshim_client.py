@@ -4,6 +4,7 @@ import selectors
 import sys
 import traceback
 import os  # for os.linesep that one time
+import time
 
 import libraries.parser as parser
 from libraries.generic_client import Client
@@ -18,7 +19,7 @@ else:
     )
 
 
-class SinopeClient(Client):
+class MRShimClient(Client):
     """A class for Sinope. Handles !shim commands and writes shim currents to the file."""
 
     def __init__(self, name):
@@ -27,7 +28,8 @@ class SinopeClient(Client):
         self.channel_number = 24
         self.shimming = False  # shimming is disabled by default!
         self.currents = [0 for _ in range(1, self.channel_number)]
-        self.print_status = False
+        self.print_status = True
+        self.holding = False
 
         # because we never send anything first, we need to create the Message object for this client manually.
         events = selectors.EVENT_READ
@@ -66,15 +68,17 @@ class SinopeClient(Client):
                 )
                 + os.linesep  # BUG: this doesn't seem to do anything??
             )
+            print(f"'Applying' currents: {formatted_currents}")
             self.shimming_file.write(formatted_currents)
             self.shimming_file.flush()
 
     def send_shims_to_jupiter(self):
         jupiter.set_shim_currents(self.currents)
 
-        # TODO: add a short delay here
         if self.print_status:
-            jupiter.display_status()
+            if JUPITER_PLUGGED_IN:
+                time.sleep(0.5)
+                jupiter.display_status()
 
     def process_events(self, mask):
         """Called by main loop. Main entry to the prompt, which will either allow a command to be entered or wait for a response."""
@@ -120,6 +124,9 @@ class SinopeClient(Client):
         self.logger.debug(f"Recieved command tokens are {command_tokens}")
         try:
             if command_tokens[0] == "shim":
+                if self.holding:
+                    return
+
                 try:
                     tile = [
                         int(current_string) for current_string in command_tokens[1:]
@@ -155,6 +162,10 @@ class SinopeClient(Client):
 
                 if JUPITER_PLUGGED_IN:
                     jupiter.disable_shims()
+
+            elif command_tokens[0] == "hold":
+                self.holding = not self.holding
+                print(f"Currents are{' not ' if not self.holding else ''} held.")
 
             elif command_tokens[0] == "status":
                 if JUPITER_PLUGGED_IN:
@@ -192,7 +203,7 @@ if len(sys.argv) != 1:
 
 
 name = "mrshim"
-mrshim = SinopeClient(name)
+mrshim = MRShimClient(name)
 
 try:
     while mrshim.running:

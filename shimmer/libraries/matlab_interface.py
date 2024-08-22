@@ -45,3 +45,26 @@ class MatlabClient(Client):
 
         self.send_request(request)
         self.main_loop()
+
+
+    def send_currents(self, command):
+        """Called by matlab. Sends an arbitrary command command."""
+
+        command = str(command)
+
+        # mismatch in dictionary forms because
+        # we want to use the python keyword 'from' as a key.
+        value = {
+            "to": "mrshim",
+            "from": "matlab",
+            "content": f"{command}",
+        }
+
+        request = dict(
+            type="relay",
+            encoding="utf-8",
+            content=value,
+        )
+
+        self.send_request(request)
+        self.main_loop()

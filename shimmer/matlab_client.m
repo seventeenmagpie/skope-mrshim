@@ -59,7 +59,7 @@ connData = initTCPClient( Host, portData, BufferSize );
 
 % TODO: add explanation of how to stream additional data
 
-%% inititate python client interface
+%% initiate python client interface
 client = interface.MatlabClient('matlab');
 client.start_connection()
 
@@ -196,7 +196,15 @@ while isempty(keep_going)
     currents = calculate_currents(data, coil_coefficients, spharms);
 
     disp("Currents are: [mA]")
-    disp(currents')
+    %disp(currents')  % currents are also displayed by python so this is
+    %redundant
+
+    if (rms(currents) > 2000)
+        disp("rms of currents exceeds 2000mA, setting currents to zero.")
+        currents = zeros(24, 1);
+    elseif (rms(currents) > 1500)
+        disp("Warning! rms of currents exceeds 1700mA.")
+    end
 
     % SENDING THE CURRENTS
     % currents should be a ROW vector of currents in MILLIAMPS

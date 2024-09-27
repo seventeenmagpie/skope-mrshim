@@ -14,7 +14,8 @@ mrshim.ShimGetAttr.restype = ctypes.POINTER(ctypes.c_int16)
 def start_connection():
     jupiter_ifname = r"\Device\NPF_{58A4C8CA-56D2-4F34-8D5E-74FD1F2E60CA}"
     jupiter_ifname_unicode = jupiter_ifname.encode("utf-8")
-    rc = mrshim.ShimStart(jupiter_ifname_unicode, 1)
+    # change the 0 in this line to a 1 to enable safe mode (ramping)
+    rc = mrshim.ShimStart(jupiter_ifname_unicode, 0)
 
     if rc == 0:
         print("Connected to Jupiter device!")

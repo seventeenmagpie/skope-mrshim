@@ -46,7 +46,6 @@ class MatlabClient(Client):
         self.send_request(request)
         self.main_loop()
 
-
     def send_currents(self, command):
         """Called by matlab. Sends an arbitrary command command."""
 

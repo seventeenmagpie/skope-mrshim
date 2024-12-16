@@ -1,12 +1,16 @@
 import ctypes
 
 # import the dll and tell python which Python types go to which c_types.
-mrshim = ctypes.cdll.LoadLibrary(r".\libraries\libshim.dll")  
+mrshim = ctypes.cdll.LoadLibrary(r".\libraries\libshim.dll")
 # path *from where python is ran* to libshim.dll
 mrshim.ShimStart.argtypes = ctypes.c_char_p, ctypes.c_int
 c_int32_p = ctypes.POINTER(ctypes.c_int32)
 mrshim.ShimSetCurr.argtypes = c_int32_p, ctypes.c_int, ctypes.c_bool
 mrshim.ShimSetCurr.restype = None
+# WARN: untested as requires mrshim hardware to be present.
+mrshim.ShimEnableWithRamp.argtypes = ctypes.c_float
+mrshim.ShimEnableWithRamp.restype = ctypes.c_int
+
 mrshim.ShimGetAttr.argtypes = (ctypes.c_int,)
 mrshim.ShimGetAttr.restype = ctypes.POINTER(ctypes.c_int16)
 
@@ -78,9 +82,18 @@ def set_shim_currents(currents):
     print(f"Shims set: {currents}")
 
 
-def enable_shims():
-    """Enable shimming. Set currents to zero."""
-    mrshim.ShimEnable()
+def enable_shims(ramp_time=0):
+    """Enable shimming. Set currents to zero.
+
+    ramp_time should be a number of milliseconds. Is rounded by mrshim to nearest of 0, 0.25, 0.5, 1, 2, 4, 8, 16, 32.
+    """
+
+    if ramp_time not in [0, 25, 0.5, 1, 2, 4, 8, 16, 32]:
+        print(
+            "Ramp time not an allowed value. Will be rounded internally to nearest of 0, 0.25, 0.5, 1, 2, 4, 8, 16, 32."
+        )
+
+    mrshim.ShimEnableWithRamp(ramp_time)
     mrshim.ShimResetCurr()
 
 

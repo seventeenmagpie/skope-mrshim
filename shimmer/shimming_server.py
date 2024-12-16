@@ -171,7 +171,9 @@ class ShimmingServer:
 
     def _remove_from_registry(self, address):
         """Removes a client from the connected clients registry and deletes its model object."""
-        name_assigned = False  # otherwise will fall through to remove last client on the registry.
+        name_assigned = (
+            False  # otherwise will fall through to remove last client on the registry.
+        )
         # could also solve by using a copy, the del has to be outside the loop because we cant change the size of the dict we are looping over.
         for name, client in self.clients_on_registry.items():
             if str(client.addr) == str(address):

@@ -30,6 +30,7 @@ class MRShimClient(Client):
         self.currents = [0 for _ in range(1, self.channel_number)]
         self.print_status = True
         self.holding = False
+        self.ramp_time = 0  # default ramp time.
 
         # because we never send anything first, we need to create the Message object for this client manually.
         events = selectors.EVENT_READ
@@ -150,11 +151,18 @@ class MRShimClient(Client):
                     self.currents = flooring
 
             elif command_tokens[0] == "start":
-                print("Shimming enabled.")
+                try:
+                    self.ramp_time = command_tokens[1]
+                except IndexError:
+                    print(
+                        f"No ramp time provided. Using previous ramp time: {self.ramp_time}."
+                    )
+
+                print(f"Shimming enabled. With a ramp time of {self.ramp_time}")
                 self.shimming = True
 
                 if JUPITER_PLUGGED_IN:
-                    jupiter.enable_shims()
+                    jupiter.enable_shims(self.ramp_time)
 
             elif command_tokens[0] == "stop":
                 print("Shimming disabled.")
